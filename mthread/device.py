@@ -83,6 +83,12 @@ def find_devices(adb_path: str | None = None) -> list[DeviceInfo]:
     return list_devices(adb)
 
 
+#: How many milliseconds of drawing the host may queue on the device before
+#: waiting for it to catch up. Small enough that stopping is immediate, large
+#: enough that the round trips it costs are lost in the noise.
+LOOKAHEAD_MS = 250.0
+
+
 class Device:
     """A connected Android device.
 
@@ -353,6 +359,7 @@ class Device:
 
         sent = 0
         pen = None
+        queued = 0.0
         with TouchInjector(self) as injector:
             for index, path in enumerate(paths, start=1):
                 if should_continue is not None and not should_continue():
@@ -364,11 +371,23 @@ class Device:
                 if pen is not None and pacing.lift_ms:
                     # The hand has to get there. Longer gaps take longer.
                     travel = math.dist(pen, points[0]) / max(pacing.travel_speed, 1.0) * 1000.0
-                    injector.pause(pacing.lift_ms + travel)
+                    queued += injector.pause(pacing.lift_ms + travel)
 
-                injector.stroke(points, pacing, rng)
+                queued += injector.stroke(points, pacing, rng)
                 pen = points[-1]
                 sent += 1
+
+                # Do not run further ahead than this. Writing a stroke costs
+                # almost nothing - every wait in it happens on the phone - so
+                # without a bound the whole drawing lands in the device's pipe
+                # in a fraction of a second. Stop then has nothing left to
+                # cancel: the host has finished and the phone is still drawing
+                # from a buffer nobody can reach. Waiting for the device to
+                # catch up keeps the backlog to a quarter of a second, which is
+                # what makes stopping feel immediate.
+                if queued >= LOOKAHEAD_MS:
+                    injector.sync()
+                    queued = 0.0
 
                 if progress is not None and index % 8 == 0:
                     progress(index, len(paths))

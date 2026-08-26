@@ -74,7 +74,8 @@ public sealed partial class MainWindow : Window
             _engine.Failed += text => Dispatch(() => StatusText.Text = text);
             _engine.ProgressChanged += (done, total) => Dispatch(() =>
                 Progress.Value = total > 0 ? 100.0 * done / total : 0);
-            _engine.FrameReady += path => Dispatch(() => ShowFrame(path));
+            _engine.FrameReady += (path, width, height) =>
+                Dispatch(() => ShowFrame(path, width, height));
             _engine.MirrorLost += text => Dispatch(() =>
                 StatusText.Text = $"The live view stopped: {text}");
 
@@ -150,7 +151,11 @@ public sealed partial class MainWindow : Window
 
             if (DeviceBox.Items.Count > 0)
             {
-                DeviceBox.SelectedIndex = 0;
+                // By item, not by index. Setting SelectedIndex on a ComboBox
+                // whose items were added moments earlier does not always take,
+                // and the box then shows "Looking for a device…" over a device
+                // that is connected and mirroring - which reads as a failure.
+                DeviceBox.SelectedItem = DeviceBox.Items[0];
                 StatusText.Text = $"{DeviceBox.Items.Count} device(s) found.";
 
                 // With one device there is nothing to choose, and the live view
@@ -220,16 +225,34 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>Give the on-screen phone the proportions of the real one.</summary>
+    /// <remarks>
+    /// Called again for every frame whose shape differs from the last, because
+    /// a phone that is turned reports the same `wm size` as before. Without it
+    /// a landscape screen is squeezed into the portrait frame it was given at
+    /// connect, and everything on it is drawn narrow.
+    /// </remarks>
     private void ShapeToDevice(int width, int height)
     {
+        if (width <= 0 || height <= 0)
+        {
+            return;
+        }
         var scale = 780.0 / Math.Max(width, height);
         // The frame's padding is its bezel, and it is outside the screen area.
-        PhoneFrame.Width = Math.Round(width * scale) + 18;
-        PhoneFrame.Height = Math.Round(height * scale) + 18;
+        var frameWidth = Math.Round(width * scale) + 18;
+        var frameHeight = Math.Round(height * scale) + 18;
+        if (Math.Abs(PhoneFrame.Width - frameWidth) < 0.5
+            && Math.Abs(PhoneFrame.Height - frameHeight) < 0.5)
+        {
+            return;
+        }
+        PhoneFrame.Width = frameWidth;
+        PhoneFrame.Height = frameHeight;
     }
 
-    private void ShowFrame(string path)
+    private void ShowFrame(string path, int width, int height)
     {
+        ShapeToDevice(width, height);
         try
         {
             // Read the bytes rather than pointing a BitmapImage at the file: the

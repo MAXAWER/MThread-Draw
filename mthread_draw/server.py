@@ -64,6 +64,9 @@ class Engine:
         self.mirror: ScreenMirror | None = None
         self.mirror_thread: threading.Thread | None = None
         self.mirror_stop: threading.Event | None = None
+        #: The size of the last frame captured, which is the only thing that
+        #: knows which way up the phone is being held.
+        self.frame_size: tuple[int, int] | None = None
 
     # ---------------------------------------------------------------- talking
 
@@ -138,7 +141,10 @@ class Engine:
             slot = 1 - slot
             path = Path(tempfile.gettempdir()) / f"mthread_draw_frame_{slot}.jpg"
             path.write_bytes(jpeg)
-            self.event("frame", path=str(path))
+            with Image.open(path) as frame:
+                self.frame_size = frame.size
+            self.event("frame", path=str(path),
+                       width=self.frame_size[0], height=self.frame_size[1])
 
     def _stop_mirror(self) -> None:
         if self.mirror_stop is not None:
@@ -181,7 +187,7 @@ class Engine:
         if self.device is None or not self.paths:
             return None
 
-        width, height = self.device.screen_size
+        width, height = self.screen_now()
         placed = fit_to_screen(self.paths, width, height, margin=margin)
 
         scale = OVERLAY_WIDTH / width
@@ -209,7 +215,7 @@ class Engine:
         if not self.paths:
             raise MThreadError("Load an image and take a preview first.")
 
-        width, height = self.device.screen_size
+        width, height = self.screen_now()
         placed = fit_to_screen(self.paths, width, height, margin=margin)
         self.cancel.clear()
         self.drawing.set()
@@ -230,6 +236,22 @@ class Engine:
     def op_stop(self) -> dict:
         self.cancel.set()
         return {"stopping": True}
+
+    def screen_now(self) -> tuple[int, int]:
+        """The screen as it is being held, not as it was manufactured.
+
+        ``wm size`` reports the natural orientation and does not change when the
+        phone is turned, so a drawing placed from it lands rotated on a phone in
+        landscape, and the preview is squashed into a portrait frame. The
+        captured frame is the one thing that knows: if it is the other way round
+        from the natural size, so is the phone.
+        """
+        width, height = self.device.screen_size
+        if self.frame_size:
+            frame_width, frame_height = self.frame_size
+            if (frame_width > frame_height) != (width > height):
+                return height, width
+        return width, height
 
     def _require_device(self) -> None:
         if self.device is None:
