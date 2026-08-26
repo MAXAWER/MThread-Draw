@@ -8,15 +8,38 @@
     mc:Ignorable="d"
     Title="MThread Draw">
 
-    <Grid RowDefinitions="Auto,*,Auto" ColumnDefinitions="340,*">
+    <!--
+        The content is capped and centred. Stretched across a wide window the
+        controls stay pinned left while the phone drifts to the middle of
+        whatever is left, and the gap between them grows into a hole.
+    -->
+    <Grid RowDefinitions="44,Auto,*,Auto" ColumnDefinitions="340,*"
+          MaxWidth="1100" HorizontalAlignment="Center">
 
-        <!-- Device bar, across the top: nothing else can be done until this is settled. -->
-        <Border Grid.Row="0" Grid.ColumnSpan="2" Padding="16,12"
+        <!--
+            The title bar is ours, not the system's.
+
+            Left as it came, the window carried two copies of its own name: one
+            in the system caption and one in the toolbar underneath it, with a
+            grey strip between them doing nothing. Extending the content into
+            the caption removes the strip; the name then only needs saying once,
+            next to the same mark the icon uses.
+        -->
+        <Grid x:Name="AppTitleBar" Grid.Row="0" Grid.ColumnSpan="2" Padding="14,0,0,0">
+            <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                <Border Width="24" Height="24" CornerRadius="6" Background="#11121A">
+                    <Ellipse Width="13" Height="13" Fill="White"/>
+                </Border>
+                <TextBlock Text="MThread Draw" FontSize="13" VerticalAlignment="Center" Opacity="0.85"/>
+            </StackPanel>
+        </Grid>
+
+        <!-- Device bar: nothing else can be done until this is settled. -->
+        <Border Grid.Row="1" Grid.ColumnSpan="2" Padding="16,12"
                 Background="{ThemeResource LayerFillColorDefaultBrush}"
-                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,0,0,1">
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,1,0,1">
             <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-                <TextBlock Text="MThread Draw" FontSize="20" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                <ComboBox x:Name="DeviceBox" MinWidth="220" PlaceholderText="No device found"
+                <ComboBox x:Name="DeviceBox" MinWidth="260" PlaceholderText="Looking for a device…"
                           VerticalAlignment="Center"/>
                 <Button x:Name="RefreshButton" Content="Refresh" Click="OnRefreshDevices"/>
                 <Button x:Name="ConnectButton" Content="Connect" Style="{StaticResource AccentButtonStyle}"
@@ -27,7 +50,7 @@
         </Border>
 
         <!-- Controls -->
-        <ScrollViewer Grid.Row="1" Grid.Column="0" Padding="16,16,8,16">
+        <ScrollViewer Grid.Row="2" Grid.Column="0" Padding="16,16,8,16">
             <StackPanel Spacing="6">
 
                 <Button x:Name="LoadButton" Content="Load image…" HorizontalAlignment="Stretch"
@@ -42,30 +65,28 @@
                     <ComboBoxItem Content="Portraits, animals, nature" Tag="flow"/>
                 </ComboBox>
                 <TextBlock Text="Two ways of finding lines. The first keeps every edge it can see; the second follows the direction lines run in."
-                           TextWrapping="Wrap" Opacity="0.6" FontSize="12" Margin="0,2,0,10"/>
+                           TextWrapping="Wrap" Opacity="0.6" FontSize="12" Margin="0,2,0,14"/>
 
-                <TextBlock Text="Edge sensitivity"/>
-                <Slider x:Name="SensitivitySlider" Minimum="1" Maximum="10" Value="5" StepFrequency="1"
-                        ValueChanged="OnSliderChanged"/>
+                <!--
+                    Two sliders, not five.
 
-                <TextBlock Text="Detail"/>
+                    Edge sensitivity and detail were always turned together and
+                    nobody could say what the difference was, so they are one
+                    control now. Speed and hand simulation were one axis
+                    pretending to be two: nobody wants a hand that draws
+                    instantly or a robot that trembles.
+                -->
+                <TextBlock Text="How much detail"/>
                 <Slider x:Name="DetailSlider" Minimum="1" Maximum="10" Value="7" StepFrequency="1"
                         ValueChanged="OnSliderChanged"/>
+                <TextBlock x:Name="DetailText" Opacity="0.7" FontSize="12" Text="7 — a fair amount"/>
 
-                <TextBlock Text="Margin around the drawing"/>
-                <Slider x:Name="MarginSlider" Minimum="0" Maximum="30" Value="6" StepFrequency="1"/>
-
-                <TextBlock Text="Speed" Margin="0,10,0,0"/>
-                <Slider x:Name="SpeedSlider" Minimum="-2" Maximum="2" Value="0" StepFrequency="0.25"
+                <TextBlock Text="How it draws" Margin="0,14,0,0"/>
+                <Slider x:Name="FeelSlider" Minimum="0" Maximum="10" Value="0" StepFrequency="1"
                         ValueChanged="OnPacingChanged"/>
-                <TextBlock x:Name="SpeedText" Opacity="0.7" FontSize="12" Text="1.00x"/>
+                <TextBlock x:Name="FeelText" Opacity="0.7" FontSize="12" Text="instantly"/>
 
-                <TextBlock Text="Draw like a hand" Margin="0,8,0,0"/>
-                <Slider x:Name="HandSlider" Minimum="0" Maximum="3" Value="0" StepFrequency="0.25"
-                        ValueChanged="OnPacingChanged"/>
-                <TextBlock x:Name="HandText" Opacity="0.7" FontSize="12" Text="off"/>
-
-                <TextBlock x:Name="EstimateText" TextWrapping="Wrap" Margin="0,12,0,0" Opacity="0.8"/>
+                <TextBlock x:Name="EstimateText" TextWrapping="Wrap" Margin="0,14,0,0" Opacity="0.8"/>
 
                 <Button x:Name="DrawButton" Content="START DRAWING" HorizontalAlignment="Stretch"
                         Height="44" Margin="0,12,0,0" Style="{StaticResource AccentButtonStyle}"
@@ -75,21 +96,35 @@
             </StackPanel>
         </ScrollViewer>
 
-        <!-- Preview -->
-        <Border Grid.Row="1" Grid.Column="1" Margin="8,16,16,16" CornerRadius="8"
-                Background="{ThemeResource SolidBackgroundFillColorBaseBrush}"
-                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
-            <Grid>
-                <TextBlock x:Name="PreviewHint" HorizontalAlignment="Center" VerticalAlignment="Center"
-                           Opacity="0.5" TextWrapping="Wrap" TextAlignment="Center" MaxWidth="420"
-                           Text="Load an image to see the strokes that will be drawn."/>
-                <Image x:Name="PreviewImage" Margin="12" Stretch="Uniform"/>
-                <ProgressRing x:Name="Busy" IsActive="False" Width="42" Height="42"/>
-            </Grid>
-        </Border>
+        <!--
+            The phone itself: its shape, its screen, and the drawing lying on
+            top of where it is going to go.
+
+            The frame is sized in code to the device's own resolution and the
+            Viewbox scales it to whatever room there is, so the proportions are
+            the phone's rather than a guess. Stretch is Fill inside because the
+            frame already has the right aspect ratio.
+        -->
+        <Grid Grid.Row="2" Grid.Column="1" Margin="8,16,16,16">
+            <Viewbox Stretch="Uniform" StretchDirection="DownOnly">
+                <Border x:Name="PhoneFrame" Width="336" Height="748" CornerRadius="30"
+                        Background="#0E0F13" Padding="9">
+                    <Grid CornerRadius="22" Background="#1B1D24">
+                        <Image x:Name="MirrorImage" Stretch="Fill"/>
+                        <Image x:Name="OverlayImage" Stretch="Fill" Opacity="0.95"/>
+                    </Grid>
+                </Border>
+            </Viewbox>
+
+            <TextBlock x:Name="PreviewHint" HorizontalAlignment="Center" VerticalAlignment="Center"
+                       Opacity="0.6" TextWrapping="Wrap" TextAlignment="Center" MaxWidth="360"
+                       Text="Connect a device to see its screen here."/>
+            <ProgressRing x:Name="Busy" IsActive="False" Width="42" Height="42"
+                          VerticalAlignment="Top" HorizontalAlignment="Right" Margin="12"/>
+        </Grid>
 
         <!-- Status bar -->
-        <Border Grid.Row="2" Grid.ColumnSpan="2" Padding="16,10"
+        <Border Grid.Row="3" Grid.ColumnSpan="2" Padding="16,10"
                 Background="{ThemeResource LayerFillColorDefaultBrush}"
                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,1,0,0">
             <Grid ColumnDefinitions="*,220">

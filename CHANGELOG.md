@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- **A live view of the device screen**, in its own shape, with the strokes laid
+  over exactly where they will land. `mthread.mirror.ScreenMirror` runs
+  `com.mthread.Mirror` from the same jar as the injector: the phone scales and
+  JPEG-compresses each frame, so the cable carries 27 kB instead of sixteen
+  megabytes. About 3.4 frames a second on a Pixel 8 Pro, against one frame every
+  two seconds for `adb exec-out screencap -p`.
+- **Two sliders instead of five.** Edge sensitivity and detail were always
+  turned together; speed and hand simulation were one axis pretending to be two.
+  The margin is fixed at six per cent.
+- The Windows front end connects by itself when there is exactly one device, and
+  opens an image named on its command line.
+
 - **The project is now MThread Draw.** Everything is renamed: `import adbtouch`
   becomes `import mthread`, `autodraw` becomes `mthread_draw`, the console
   script is `mthread` and the desktop entry point `mthread-draw`, the

@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices.WindowsRuntime;
 using System.Text.Json.Nodes;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -14,6 +15,13 @@ public sealed partial class MainWindow : Window
     private bool _connected;
     private bool _drawing;
 
+    /// <summary>The margin left around a drawing, as a fraction of the screen.</summary>
+    /// <remarks>
+    /// This used to be a slider. It was the least interesting control in the
+    /// window and it was in the way of the two that matter.
+    /// </remarks>
+    private const double Margin = 0.06;
+
     /// <summary>Coalesces slider movements: previewing on every tick would queue
     /// up seconds of work nobody is waiting for any more.</summary>
     private readonly DispatcherTimer _previewDelay = new() { Interval = TimeSpan.FromMilliseconds(350) };
@@ -21,6 +29,12 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+
+        // Draw into the caption instead of sitting under it. The system bar
+        // contributed a grey strip, a second copy of the window's name and
+        // nothing else; the caption buttons stay where Windows puts them.
+        ExtendsContentIntoTitleBar = true;
+        SetTitleBar(AppTitleBar);
 
         // The window does not know its DPI until it has been shown, and asking
         // sooner gets 96 and a window a third too small on a scaled display.
@@ -30,7 +44,7 @@ public sealed partial class MainWindow : Window
             if (!sized)
             {
                 sized = true;
-                ResizeToDips(1220, 820);
+                ResizeToDips(1180, 860);
             }
         };
 
@@ -60,9 +74,13 @@ public sealed partial class MainWindow : Window
             _engine.Failed += text => Dispatch(() => StatusText.Text = text);
             _engine.ProgressChanged += (done, total) => Dispatch(() =>
                 Progress.Value = total > 0 ? 100.0 * done / total : 0);
+            _engine.FrameReady += path => Dispatch(() => ShowFrame(path));
+            _engine.MirrorLost += text => Dispatch(() =>
+                StatusText.Text = $"The live view stopped: {text}");
 
             StatusText.Text = "Ready.";
             await RefreshDevicesAsync();
+            await OpenFromCommandLineAsync();
         }
         catch (Exception error)
         {
@@ -99,7 +117,11 @@ public sealed partial class MainWindow : Window
     private string Tracer =>
         (TracerBox.SelectedItem as ComboBoxItem)?.Tag as string ?? "canny";
 
-    private double Speed => Math.Pow(2, SpeedSlider.Value);
+    // One slider, two numbers. Nobody wants a hand that draws instantly or a
+    // machine that trembles, so the two only ever moved together anyway.
+    private double Speed => 8.0 * Math.Pow(0.075, FeelSlider.Value / 10.0);
+
+    private double Human => Math.Max(0.0, (FeelSlider.Value - 4.0) / 3.0);
 
     // ------------------------------------------------------------------ devices
 
@@ -130,10 +152,23 @@ public sealed partial class MainWindow : Window
             {
                 DeviceBox.SelectedIndex = 0;
                 StatusText.Text = $"{DeviceBox.Items.Count} device(s) found.";
+
+                // With one device there is nothing to choose, and the live view
+                // is the reason the window is worth looking at. Making people
+                // press Connect first only delays the useful part.
+                if (DeviceBox.Items.Count == 1 && !_connected
+                    && devices[0]?["state"]?.GetValue<string>() == "device")
+                {
+                    OnConnect(this, new RoutedEventArgs());
+                }
             }
             else
             {
-                StatusText.Text = "No device. Plug a phone in with USB debugging on, or run adb connect.";
+                // The engine restarts the adb daemon before reporting nothing,
+                // so by this point "none" means none rather than "the daemon
+                // has been sulking since before the cable went in".
+                StatusText.Text = "No device, and restarting adb did not find one. " +
+                                  "Check the cable, turn on USB debugging, and accept the prompt on the phone.";
             }
         }
         catch (EngineException error)
@@ -159,20 +194,56 @@ public sealed partial class MainWindow : Window
             var raw = result["raw_touch"]!.GetValue<bool>();
 
             _connected = true;
+            ShapeToDevice(width, height);
             DeviceText.Text = $"{result["serial"]!.GetValue<string>()} · {width}×{height}";
             StatusText.Text = raw
                 ? "Connected. This device allows raw touch events, which is the fast path."
                 : "Connected. This device refuses raw touch events, so drawing goes through the injector.";
             UpdateButtons();
+
+            PreviewHint.Text = "Starting the live view…";
+            await _engine.CallAsync("mirror", new { on = true });
+            PreviewHint.Visibility = Visibility.Collapsed;
+
+            await RefreshPreviewAsync();
             await RefreshEstimateAsync();
         }
         catch (EngineException error)
         {
             StatusText.Text = error.Message;
+            PreviewHint.Text = "Connect a device to see its screen here.";
         }
         finally
         {
             Busy.IsActive = false;
+        }
+    }
+
+    /// <summary>Give the on-screen phone the proportions of the real one.</summary>
+    private void ShapeToDevice(int width, int height)
+    {
+        var scale = 780.0 / Math.Max(width, height);
+        // The frame's padding is its bezel, and it is outside the screen area.
+        PhoneFrame.Width = Math.Round(width * scale) + 18;
+        PhoneFrame.Height = Math.Round(height * scale) + 18;
+    }
+
+    private void ShowFrame(string path)
+    {
+        try
+        {
+            // Read the bytes rather than pointing a BitmapImage at the file: the
+            // engine is writing the next frame while this one is being shown,
+            // and a BitmapImage holds its file open.
+            var bytes = File.ReadAllBytes(path);
+            var bitmap = new BitmapImage();
+            using var stream = new MemoryStream(bytes).AsRandomAccessStream();
+            bitmap.SetSource(stream);
+            MirrorImage.Source = bitmap;
+        }
+        catch (IOException)
+        {
+            // Caught the file mid-write; the next frame is 300 ms away.
         }
     }
 
@@ -207,7 +278,31 @@ public sealed partial class MainWindow : Window
             _imageLoaded = true;
             ImageText.Text = $"{Path.GetFileName(file.Path)} · " +
                              $"{result["width"]!.GetValue<int>()}×{result["height"]!.GetValue<int>()}";
-            PreviewHint.Visibility = Visibility.Collapsed;
+            await RefreshPreviewAsync();
+        }
+        catch (EngineException error)
+        {
+            StatusText.Text = error.Message;
+        }
+    }
+
+    /// <summary>Open an image named on the command line, so the app can be the
+    /// thing you send a picture to rather than a place you go and fetch one.</summary>
+    private async Task OpenFromCommandLineAsync()
+    {
+        var named = Environment.GetCommandLineArgs().Skip(1)
+            .FirstOrDefault(argument => File.Exists(argument));
+        if (named is null || _engine is null)
+        {
+            return;
+        }
+
+        try
+        {
+            var result = await _engine.CallAsync("load_image", new { path = named });
+            _imageLoaded = true;
+            ImageText.Text = $"{Path.GetFileName(named)} · " +
+                             $"{result["width"]!.GetValue<int>()}×{result["height"]!.GetValue<int>()}";
             await RefreshPreviewAsync();
         }
         catch (EngineException error)
@@ -218,7 +313,23 @@ public sealed partial class MainWindow : Window
 
     private void OnSettingChanged(object sender, RoutedEventArgs args) => SchedulePreview();
 
-    private void OnSliderChanged(object sender, RangeBaseValueChangedEventArgs args) => SchedulePreview();
+    private void OnSliderChanged(object sender, RangeBaseValueChangedEventArgs args)
+    {
+        if (DetailText is not null)
+        {
+            DetailText.Text = $"{DetailSlider.Value:0} — {DetailWord(DetailSlider.Value)}";
+        }
+        SchedulePreview();
+    }
+
+    private static string DetailWord(double value) => value switch
+    {
+        <= 2 => "the shape and little else",
+        <= 4 => "the main lines",
+        <= 6 => "a moderate amount",
+        <= 8 => "a fair amount",
+        _ => "everything it can find",
+    };
 
     private void SchedulePreview()
     {
@@ -242,12 +353,18 @@ public sealed partial class MainWindow : Window
         {
             var result = await _engine.CallAsync("preview", new
             {
-                sensitivity = SensitivitySlider.Value,
+                sensitivity = DetailSlider.Value,
                 detail = DetailSlider.Value,
                 method = Tracer,
+                margin = Margin,
             });
 
-            ShowPreview(result["path"]!.GetValue<string>());
+            var overlay = result["overlay"]?.GetValue<string>();
+            if (overlay is not null)
+            {
+                ShowOverlay(overlay);
+            }
+
             StatusText.Text = $"{result["strokes"]!.GetValue<int>()} strokes, " +
                               $"{result["points"]!.GetValue<int>()} points, traced in " +
                               $"{result["seconds"]!.GetValue<double>():0.0}s";
@@ -264,26 +381,33 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private void ShowPreview(string path)
+    private void ShowOverlay(string path)
     {
         // Copied first: the engine overwrites this file on every preview, and a
         // BitmapImage bound straight to it would hold the file open.
-        var copy = Path.Combine(Path.GetTempPath(), $"mthread_draw_preview_{Guid.NewGuid():N}.png");
+        var copy = Path.Combine(Path.GetTempPath(), $"mthread_draw_overlay_{Guid.NewGuid():N}.png");
         File.Copy(path, copy, overwrite: true);
-        PreviewImage.Source = new BitmapImage(new Uri(copy));
+        OverlayImage.Source = new BitmapImage(new Uri(copy));
     }
 
     // ------------------------------------------------------------------ pacing
 
     private async void OnPacingChanged(object sender, RangeBaseValueChangedEventArgs args)
     {
-        if (SpeedText is null || HandText is null)
+        if (FeelText is null)
         {
             return;  // fired while the XAML is still being built
         }
 
-        SpeedText.Text = $"{Speed:0.00}x";
-        HandText.Text = HandSlider.Value <= 0 ? "off" : $"{HandSlider.Value:0.00}";
+        FeelText.Text = FeelSlider.Value switch
+        {
+            0 => "instantly",
+            <= 2 => $"very fast — {Speed:0.0}x",
+            <= 4 => $"fast — {Speed:0.0}x",
+            <= 6 => $"like a quick hand — {Speed:0.0}x",
+            <= 8 => $"like a hand — {Speed:0.0}x",
+            _ => $"like a careful hand — {Speed:0.0}x",
+        };
         await RefreshEstimateAsync();
     }
 
@@ -296,11 +420,7 @@ public sealed partial class MainWindow : Window
 
         try
         {
-            var result = await _engine.CallAsync("estimate", new
-            {
-                speed = Speed,
-                human = HandSlider.Value,
-            });
+            var result = await _engine.CallAsync("estimate", new { speed = Speed, human = Human });
             var seconds = result["seconds"]!.GetValue<double>();
             EstimateText.Text = seconds >= 60
                 ? $"About {(int)seconds / 60} min {(int)seconds % 60} s to draw."
@@ -329,9 +449,9 @@ public sealed partial class MainWindow : Window
         {
             var result = await _engine.CallAsync("draw", new
             {
-                margin = MarginSlider.Value / 100.0,
+                margin = Margin,
                 speed = Speed,
-                human = HandSlider.Value,
+                human = Human,
             });
             StatusText.Text = result["stopped"]!.GetValue<bool>()
                 ? "Stopped."

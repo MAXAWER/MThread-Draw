@@ -21,7 +21,7 @@ Typical use::
 """
 
 from .adb import find_adb
-from .device import Device, DeviceInfo, list_devices
+from .device import Device, DeviceInfo, find_devices, list_devices, restart_server
 from .hand import HandSettings, reorder_strokes, simulate
 from .injector import InjectorUnavailableError, Pacing, TouchInjector
 from .errors import (
@@ -62,7 +62,7 @@ def __dir__():
 
 __all__ = [
     "__version__",
-    "Device", "DeviceInfo", "list_devices", "find_adb",
+    "Device", "DeviceInfo", "list_devices", "find_devices", "restart_server", "find_adb",
     "HandSettings", "simulate", "reorder_strokes",
     "TouchInjector", "Pacing", "InjectorUnavailableError",
     "Recorder", "Session", "InputEvent", "replay", "build_replay_script", "parse_getevent_line",

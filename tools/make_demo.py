@@ -73,13 +73,21 @@ FRAMES = 46
 HOLD_FRAMES = 14
 FRAME_MS = 80
 
-PAGE = (255, 255, 255)
-BODY = (24, 26, 30)
+# The page is dark and the marks on it are white, which is the identity the
+# repository uses everywhere. The phone screen is the one exception: it stays
+# white with black ink, because that is what the phone actually shows.
+PAGE = (12, 13, 17)
+BODY = (245, 246, 250)
 SCREEN = (255, 255, 255)
 INK = (20, 20, 22)
 PEN = (226, 62, 62)
-LABEL = (108, 112, 120)
-RULE = (214, 217, 223)
+LABEL = (150, 154, 166)
+RULE = (48, 51, 60)
+#: Ink for a drawing shown on the page rather than on the phone.
+PAGE_INK = (238, 240, 246)
+#: The phone body. Once the page went dark this stopped being the text
+#: colour: a light body around a light screen is one pale blob.
+PHONE = (32, 34, 42)
 
 
 def _font(size: int, bold: bool = False) -> ImageFont.ImageFont:
@@ -148,9 +156,9 @@ def stamp(canvas: Image.Image, mask: Image.Image, colour, origin=(0, 0)) -> None
 
 
 def drawing(paths, size, width: float = 1.5) -> Image.Image:
-    """A finished line drawing on white, at *size*."""
+    """A finished line drawing on the page, at *size*."""
     canvas = Image.new("RGB", size, PAGE)
-    stamp(canvas, ink_mask(paths, size, width), INK)
+    stamp(canvas, ink_mask(paths, size, width), PAGE_INK)
     return canvas
 
 
@@ -183,7 +191,7 @@ def phone_backdrop(source: Image.Image, example: Example, stroke_count: int, lay
     draw.polygon([(phone_x - 30, y), (phone_x - 48, y - 10), (phone_x - 48, y + 10)], fill=RULE)
 
     draw.rounded_rectangle(
-        [(phone_x, phone_y), (phone_x + phone_w - 1, phone_y + phone_h - 1)], CORNER, fill=BODY)
+        [(phone_x, phone_y), (phone_x + phone_w - 1, phone_y + phone_h - 1)], CORNER, fill=PHONE)
     draw.rounded_rectangle(
         [(phone_x + BEZEL, phone_y + BEZEL),
          (phone_x + phone_w - BEZEL - 1, phone_y + phone_h - BEZEL - 1)],
@@ -194,7 +202,7 @@ def phone_backdrop(source: Image.Image, example: Example, stroke_count: int, lay
     else:
         speaker = [(phone_x + phone_w // 2 - 28, phone_y + 6),
                    (phone_x + phone_w // 2 + 28, phone_y + 13)]
-    draw.rounded_rectangle(speaker, 4, fill=(58, 60, 66))
+    draw.rounded_rectangle(speaker, 4, fill=(78, 81, 92))
     return canvas, ty + thumb.height + 40
 
 
@@ -350,7 +358,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--out", default="docs", help="directory for the generated assets")
-    parser.add_argument("--hero", default="cat", choices=[e.name for e in EXAMPLES],
+    parser.add_argument("--hero", default="guitar", choices=[e.name for e in EXAMPLES],
                         help="which example is animated in demo.gif")
     parser.add_argument("--image", help="trace one image of your own instead")
     parser.add_argument("--method", default="canny", choices=["canny", "flow", "neural", "contour"])

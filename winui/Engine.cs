@@ -28,6 +28,8 @@ public sealed class Engine : IAsyncDisposable
     public event Action<string>? StatusChanged;
     public event Action<int, int>? ProgressChanged;
     public event Action<string>? Failed;
+    public event Action<string>? FrameReady;
+    public event Action<string>? MirrorLost;
 
     private Engine(Process process)
     {
@@ -176,6 +178,12 @@ public sealed class Engine : IAsyncDisposable
             case "progress":
                 ProgressChanged?.Invoke(message["done"]?.GetValue<int>() ?? 0,
                                         message["total"]?.GetValue<int>() ?? 1);
+                break;
+            case "frame":
+                FrameReady?.Invoke(message["path"]?.GetValue<string>() ?? string.Empty);
+                break;
+            case "mirror_lost":
+                MirrorLost?.Invoke(message["error"]?.GetValue<string>() ?? string.Empty);
                 break;
         }
     }

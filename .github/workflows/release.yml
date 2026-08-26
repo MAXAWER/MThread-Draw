@@ -40,9 +40,11 @@ env:
 
 jobs:
   windows:
-    name: Windows installer
+    name: Windows installer and WinUI front end
     runs-on: windows-latest
-    timeout-minutes: 30
+    # Two PyInstaller builds, a WiX build, a self-contained WinUI publish and a
+    # 400 MB zip. Thirty minutes was enough before the WinUI front end existed.
+    timeout-minutes: 50
     steps:
       - uses: actions/checkout@v4
 
@@ -50,14 +52,18 @@ jobs:
         with:
           python-version: "3.12"
 
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
       - name: Install build dependencies
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e ".[gui]" pyinstaller
           dotnet tool install --global wix --version ${{ env.WIX_VERSION }}
 
-      - name: Build app, installer and archive
-        run: python tools/build_app.py --msi --archive
+      - name: Build app, installer, WinUI front end and archive
+        run: python tools/build_app.py --msi --winui --archive
 
       - uses: actions/upload-artifact@v4
         with:
@@ -143,7 +149,8 @@ jobs:
 
             | | |
             |---|---|
-            | **Windows** | `MThreadDraw-*-x64.msi` — installs like any other program, Start Menu entry included. The `.zip` is the same app with no installer. |
+            | **Windows** | `MThreadDraw-*-x64.msi` — installs like any other program, Start Menu entry included. `MThreadDraw-*-windows-x64.zip` is the same app with no installer. |
+            | **Windows, native interface** | `MThreadDraw-WinUI-*-x64.zip` — the WinUI 3 front end. Unzip anywhere and run `MThreadDraw.exe`; it needs no runtime installed and carries its own copy of the engine. Larger, and the newer of the two. |
             | **macOS** | `MThreadDraw-*-arm64.dmg` for Apple Silicon, `MThreadDraw-*-x64.dmg` for Intel. Drag it to Applications. |
             | **Linux** | Run from source — see the [README](https://github.com/MAXAWER/MThread-Draw#install-variants). |
 
