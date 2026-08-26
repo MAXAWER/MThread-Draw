@@ -201,13 +201,26 @@ def main() -> int:
     parser.add_argument("--method", default="flow", choices=["canny", "flow"])
     parser.add_argument("--out", default="docs/banner.gif")
     parser.add_argument("--still", action="store_true", help="also write a PNG of the last frame")
+    parser.add_argument("--social", action="store_true",
+                        help="also write docs/social-preview.png, 1280x640 for GitHub")
     args = parser.parse_args()
 
     paths = trace(args.image, args.method)
     print(f"{len(paths)} strokes, {sum(map(len, paths))} points")
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
-    render(paths, out, args.still)
+    render(paths, out, args.still or args.social)
+
+    if args.social:
+        # GitHub's social preview is 1280x640 and is uploaded by hand in the
+        # repository settings; there is no API for it. The banner is the right
+        # width already, so it only wants centring on a taller ground.
+        still = Image.open(out.with_suffix(".png")).convert("RGB")
+        card = Image.new("RGB", (1280, 640), BACK)
+        card.paste(still, (0, (640 - still.height) // 2))
+        social = out.parent / "social-preview.png"
+        card.save(social)
+        print(f"wrote {social} - upload it under Settings, Social preview")
     return 0
 
 
