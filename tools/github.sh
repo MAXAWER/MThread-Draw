@@ -2,6 +2,7 @@
 #
 # One narrow door to this repository's GitHub API.
 #
+#     tools/github.sh GET  ""                 (the repository itself)
 #     tools/github.sh GET  /pulls
 #     tools/github.sh PUT  /pulls/7/merge '{"merge_method":"squash"}'
 #     tools/github.sh POST /releases '{"tag_name":"v1.1.0"}'
@@ -38,9 +39,9 @@ case "$METHOD" in
 esac
 
 # A path only, so no amount of creativity redirects this at another repository
-# or another host.
+# or another host. An empty path is the repository itself.
 case "$PATH_UNDER_REPO" in
-    /*) ;;
+    ""|/*) ;;
     *) echo "path must start with /" >&2; exit 2 ;;
 esac
 case "$PATH_UNDER_REPO" in

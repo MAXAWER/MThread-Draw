@@ -1,0 +1,5 @@
+{
+  "permissions": {
+    "allow": ["Bash(bash tools/github.sh:*)"]
+  }
+}
