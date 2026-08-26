@@ -90,8 +90,12 @@ class FindAdbTests(unittest.TestCase):
             plain = Path(tmp) / "adb"
             plain.write_text("not executable")
             plain.chmod(0o644)
+            # The per-platform fallbacks have to go too: a machine with the
+            # Android SDK installed in its default location - every macOS CI
+            # runner, for one - would find a real adb there and never raise.
             with mock.patch.dict(os.environ, {}, clear=True), \
-                 mock.patch("adbtouch.adb.shutil.which", return_value=None):
+                 mock.patch("adbtouch.adb.shutil.which", return_value=None), \
+                 mock.patch.dict("adbtouch.adb._FALLBACKS", {"win32": [], "darwin": [], "linux": []}):
                 with self.assertRaises(AdbNotFoundError):
                     find_adb(str(plain))
 
