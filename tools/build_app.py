@@ -190,6 +190,13 @@ def build_winui() -> Path:
 
     size = sum(f.stat().st_size for f in out.rglob("*") if f.is_file())
     print(f"built {out} ({size // 1024 // 1024} MB)")
+
+    # A release asset has to be one file, and a folder of four thousand is a
+    # poor thing to ask anyone to download by hand.
+    archive = Path(shutil.make_archive(
+        str(DIST / f"MThreadDraw-WinUI-{version()}-{arch_tag()}"), "zip",
+        root_dir=out.parent, base_dir=out.name))
+    print(f"built {archive} ({archive.stat().st_size // 1024 // 1024} MB)")
     return out
 
 
