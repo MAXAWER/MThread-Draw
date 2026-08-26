@@ -137,9 +137,9 @@ repetitive tapping you would rather not do by hand.
 
 ## From source
 
-Running from source is the one case where you supply your own
-[platform-tools](https://developer.android.com/tools/releases/platform-tools)
-(`adb` on your `PATH`); the packaged builds carry their own.
+[`run.bat`](run.bat) on Windows and [`run.sh`](run.sh) elsewhere do the whole
+thing: virtual environment, dependencies, and `adb` if the machine has none.
+Otherwise, by hand:
 
 ```bash
 git clone https://github.com/MAXAWER/AutoDraw-Sim.git
@@ -151,9 +151,13 @@ pip install -e ".[gui]"     # + the desktop app
 pip install -e ".[bg]"      # + rembg background removal
 ```
 
-If `adb` is installed somewhere unusual, point `ADB_PATH` at it. On Windows you
-can also just run [`run.bat`](run.bat), which creates a virtual environment and
-starts the app for you; on macOS and Linux, [`run.sh`](run.sh).
+`adb` is found in this order: `ADB_PATH`, the copy inside a packaged build, your
+`PATH`, a `platform-tools` directory beside the working directory, then the usual
+Android SDK locations. If you have none of those:
+
+```bash
+python tools/fetch_platform_tools.py     # ~7 MB, straight from Google
+```
 
 To build the packaged application and its installer yourself:
 
@@ -315,9 +319,17 @@ pip install -e ".[gui]"
 autodraw
 ```
 
-Здесь `adb` нужен свой — в `PATH` или в переменной `ADB_PATH`. На Windows можно
-запустить [`run.bat`](run.bat), он сам создаст виртуальное окружение; на macOS и
-Linux — [`run.sh`](run.sh).
+Проще запустить [`run.bat`](run.bat) на Windows или [`run.sh`](run.sh) на macOS и
+Linux — они сами создадут виртуальное окружение, поставят зависимости и скачают
+`adb`, если своего на машине нет.
+
+`adb` ищется по порядку: `ADB_PATH`, копия внутри собранного приложения, ваш
+`PATH`, папка `platform-tools` рядом с рабочим каталогом, затем обычные пути
+Android SDK. Если ничего из этого нет:
+
+```bash
+python tools/fetch_platform_tools.py     # ~7 МБ, прямо от Google
+```
 
 ## Как картинка превращается в касания
 

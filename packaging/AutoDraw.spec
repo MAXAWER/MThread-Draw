@@ -11,7 +11,8 @@ itself into a temporary directory on every launch - with OpenCV and adb inside
 that is several seconds of nothing happening, and antivirus software treats the
 self-extraction as suspicious. The installers hide the directory anyway.
 
-adb comes from build/platform-tools, put there by tools/fetch_platform_tools.py.
+adb comes from the platform-tools directory, put there by
+tools/fetch_platform_tools.py.
 If it is absent the build still works; the app then falls back to whatever adb
 the machine has, exactly like a source checkout.
 """
@@ -29,11 +30,11 @@ VERSION = "1.1.0"
 
 datas = collect_data_files("customtkinter")
 
-platform_tools = ROOT / "build" / "platform-tools"
+platform_tools = ROOT / "platform-tools"
 if platform_tools.is_dir():
     datas += [(str(item), "platform-tools") for item in platform_tools.iterdir() if item.is_file()]
 else:
-    print("AutoDraw.spec: build/platform-tools not found - the app will need adb on PATH")
+    print("AutoDraw.spec: platform-tools not found - the app will need adb on PATH")
 
 icon = str(ROOT / "packaging" / ("autodraw.ico" if IS_WINDOWS else "autodraw.png"))
 

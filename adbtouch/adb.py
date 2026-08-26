@@ -91,8 +91,9 @@ def find_adb(explicit: str | None = None) -> str:
     """Return a usable path to ``adb``.
 
     Resolution order: explicit argument, ``ADB_PATH`` environment variable, the
-    copy shipped inside a packaged build, ``PATH``, a binary next to the current
-    working directory, then the default SDK location for the running platform.
+    copy shipped inside a packaged build, ``PATH``, a ``platform-tools``
+    directory or a bare binary beside the working directory, then the default
+    SDK location for the running platform.
 
     The bundled copy outranks ``PATH`` on purpose: an installed AutoDraw should
     behave the same on every machine, rather than inheriting whichever adb
@@ -114,7 +115,10 @@ def find_adb(explicit: str | None = None) -> str:
     if on_path:
         candidates.append(on_path)
 
+    # A source checkout that ran tools/fetch_platform_tools.py keeps adb here,
+    # so running from the repository needs no system-wide install either.
     for local in ("adb", "adb.exe"):
+        candidates.append(str(Path.cwd() / "platform-tools" / local))
         candidates.append(str(Path.cwd() / local))
 
     for raw in _FALLBACKS[_platform_key()]:

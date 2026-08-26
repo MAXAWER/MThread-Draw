@@ -24,6 +24,9 @@ __pycache__/
 screen_tmp.png
 *.log
 
+# Downloaded by tools/fetch_platform_tools.py
+/platform-tools/
+
 # Environment
 .env
 venv/

@@ -113,6 +113,24 @@ class BundledAdbTests(unittest.TestCase):
         name = "adb.exe" if IS_WINDOWS else "adb"
         self.assertTrue(any(c.endswith(os.path.join("platform-tools", name)) for c in found))
 
+    def test_project_local_platform_tools_is_found(self):
+        """What tools/fetch_platform_tools.py leaves behind in a source checkout.
+
+        The file has to carry adb's real name here, since that is exactly what
+        find_adb looks for; it never has to run.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            local = Path(tmp) / "platform-tools"
+            local.mkdir()
+            fake = local / ("adb.exe" if IS_WINDOWS else "adb")
+            fake.write_text("not a real adb")
+            fake.chmod(fake.stat().st_mode | stat.S_IEXEC)
+            with mock.patch.dict(os.environ, {}, clear=True), \
+                 mock.patch("adbtouch.adb.shutil.which", return_value=None), \
+                 mock.patch("adbtouch.adb.Path.cwd", return_value=Path(tmp)), \
+                 mock.patch.dict("adbtouch.adb._FALLBACKS", {"win32": [], "darwin": [], "linux": []}):
+                self.assertEqual(Path(find_adb()).resolve(), fake.resolve())
+
     def test_bundled_copy_beats_whatever_is_on_path(self):
         with tempfile.TemporaryDirectory() as tmp:
             bundled = make_fake_adb(Path(tmp))

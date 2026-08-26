@@ -9,7 +9,7 @@ Software Development Kit licence, and bundling it inside a release is a choice
 the project makes deliberately - see docs/RELEASING.md. NOTICE.txt is kept
 alongside the binary for that reason; do not drop it.
 
-    python tools/fetch_platform_tools.py --out build/platform-tools
+    python tools/fetch_platform_tools.py
 """
 
 from __future__ import annotations
@@ -85,7 +85,8 @@ def fetch(key: str, out: Path, *, slim: bool = True) -> Path:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--out", default="build/platform-tools")
+    parser.add_argument("--out", default="platform-tools",
+                        help="where to put adb; the default is where find_adb looks")
     parser.add_argument("--platform", choices=sorted(URLS), help="defaults to the running platform")
     parser.add_argument("--full", action="store_true", help="keep the whole archive, not just adb")
     parser.add_argument("--force", action="store_true", help="re-download even if it is already there")

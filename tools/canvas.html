@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>AutoDraw test canvas</title>
+<style>
+  :root { color-scheme: light; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; overflow: hidden; background: #fff;
+               font: 13px/1.4 -apple-system, Roboto, system-ui, sans-serif; }
+  canvas { position: fixed; inset: 0; width: 100%; height: 100%; touch-action: none; }
+  #hud { position: fixed; top: 0; left: 0; right: 0; padding: 8px 10px;
+         display: flex; gap: 12px; align-items: center;
+         background: rgba(255,255,255,.86); border-bottom: 1px solid #e4e6ea;
+         color: #4a4f57; pointer-events: none; }
+  #hud b { color: #16181d; font-variant-numeric: tabular-nums; }
+  #clear { pointer-events: auto; margin-left: auto; border: 1px solid #d4d7dd;
+           background: #fff; color: #4a4f57; border-radius: 6px; padding: 5px 12px; }
+  #clear:active { background: #eef0f3; }
+</style>
+</head>
+<body>
+<canvas id="paper"></canvas>
+
+<div id="hud">
+  <span>strokes <b id="strokes">0</b></span>
+  <span>points <b id="points">0</b></span>
+  <span>last <b id="last">-</b></span>
+  <button id="clear">Clear</button>
+</div>
+
+<script>
+// A deliberately dumb canvas: every pointer event becomes a line segment, and
+// the counters make it obvious whether the strokes arriving from adbtouch are
+// the ones it thinks it is sending. The grid is there so a touch landing in the
+// wrong place is visible rather than merely suspected - which is the whole
+// failure mode this project keeps running into on unfamiliar digitizers.
+const paper = document.getElementById('paper');
+const ctx = paper.getContext('2d');
+const out = {
+  strokes: document.getElementById('strokes'),
+  points: document.getElementById('points'),
+  last: document.getElementById('last'),
+};
+
+let strokes = 0, points = 0, drawing = false;
+let dpr = 1;
+
+function grid() {
+  const w = paper.width / dpr, h = paper.height / dpr;
+  ctx.save();
+  ctx.strokeStyle = '#eceef1';
+  ctx.lineWidth = 1;
+  for (let x = 0; x <= w; x += 50) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
+  for (let y = 0; y <= h; y += 50) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+
+  // Corner and centre targets, labelled, for checking calibration by eye.
+  ctx.strokeStyle = '#c8ccd2';
+  ctx.fillStyle = '#9aa0a8';
+  ctx.font = '12px monospace';
+  const marks = [[0, 0, 'left'], [w, 0, 'right'], [0, h, 'left'], [w, h, 'right'], [w / 2, h / 2, 'center']];
+  for (const [x, y, align] of marks) {
+    ctx.beginPath();
+    ctx.moveTo(x - 22, y); ctx.lineTo(x + 22, y);
+    ctx.moveTo(x, y - 22); ctx.lineTo(x, y + 22);
+    ctx.stroke();
+    ctx.textAlign = align === 'center' ? 'center' : align;
+    const label = `${Math.round(x)},${Math.round(y)}`;
+    ctx.fillText(label, align === 'right' ? x - 6 : x + 6, y + (y < 40 ? 30 : -10));
+  }
+  ctx.restore();
+
+  ctx.strokeStyle = '#111';
+  ctx.lineWidth = 3;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+}
+
+function resize() {
+  dpr = window.devicePixelRatio || 1;
+  // A browser that reports zero - a hidden tab, a webview measured before
+  // layout - would otherwise leave a 0x0 canvas that never draws anything and
+  // looks exactly like a touch problem.
+  const w = Math.max(innerWidth, document.documentElement.clientWidth, 320);
+  const h = Math.max(innerHeight, document.documentElement.clientHeight, 480);
+  paper.width = Math.round(w * dpr);
+  paper.height = Math.round(h * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  reset();
+}
+
+function reset() {
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, paper.width, paper.height);
+  ctx.restore();
+  grid();
+  strokes = points = 0;
+  out.strokes.textContent = '0';
+  out.points.textContent = '0';
+  out.last.textContent = '-';
+}
+
+function down(event) {
+  drawing = true;
+  strokes += 1;
+  out.strokes.textContent = strokes;
+  ctx.beginPath();
+  ctx.moveTo(event.clientX, event.clientY);
+  move(event);
+}
+
+function move(event) {
+  if (!drawing) return;
+  ctx.lineTo(event.clientX, event.clientY);
+  ctx.stroke();
+  points += 1;
+  out.points.textContent = points;
+  out.last.textContent = `${Math.round(event.clientX)},${Math.round(event.clientY)}`;
+}
+
+function up() {
+  drawing = false;
+}
+
+paper.addEventListener('pointerdown', down);
+paper.addEventListener('pointermove', move);
+paper.addEventListener('pointerup', up);
+paper.addEventListener('pointercancel', up);
+paper.addEventListener('pointerleave', up);
+document.getElementById('clear').addEventListener('click', reset);
+addEventListener('resize', resize);
+addEventListener('orientationchange', () => setTimeout(resize, 120));
+resize();
+</script>
+</body>
+</html>

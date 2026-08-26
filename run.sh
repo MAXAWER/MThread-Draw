@@ -18,9 +18,10 @@ if [ ! -x "$PY" ]; then
     "$PY" -m pip install -e ".[gui]"
 fi
 
-if ! command -v adb >/dev/null 2>&1 && [ -z "${ADB_PATH:-}" ]; then
-    echo "Warning: 'adb' is not on your PATH. Install Android platform-tools, or"
-    echo "point ADB_PATH at the binary. https://developer.android.com/tools/releases/platform-tools"
+# adb, if this machine has none of its own. Downloaded once, from Google.
+if ! command -v adb >/dev/null 2>&1 && [ -z "${ADB_PATH:-}" ] && [ ! -x platform-tools/adb ]; then
+    echo "Fetching adb ..."
+    "$PY" tools/fetch_platform_tools.py
 fi
 
 exec "$PY" -m autodraw "$@"

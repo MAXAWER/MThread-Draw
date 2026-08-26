@@ -66,7 +66,7 @@ def ensure_platform_tools(skip: bool) -> None:
     if skip:
         print("skipping adb: the app will fall back to whatever the machine has")
         return
-    run(sys.executable, ROOT / "tools" / "fetch_platform_tools.py", "--out", BUILD / "platform-tools")
+    run(sys.executable, ROOT / "tools" / "fetch_platform_tools.py", "--out", ROOT / "platform-tools")
 
 
 def build_app() -> Path:

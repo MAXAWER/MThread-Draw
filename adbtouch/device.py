@@ -79,6 +79,15 @@ class Device:
     def _args(self, extra: Sequence) -> list:
         return ["-s", self.serial, *extra]
 
+    def adb(self, *command, timeout: float | None = 30.0, check: bool = True):
+        """Run an ``adb`` command against this device.
+
+        For the subcommands that are not shell commands - ``reverse``,
+        ``forward``, ``install``, ``push`` - which callers would otherwise have
+        to assemble the ``-s <serial>`` themselves for.
+        """
+        return run_adb(self.adb_path, self._args(command), timeout=timeout, check=check)
+
     def shell(self, *command, timeout: float | None = 30.0, check: bool = True):
         """Run a shell command on the device and return the completed process."""
         return run_adb(self.adb_path, self._args(["shell", *command]), timeout=timeout, check=check)
