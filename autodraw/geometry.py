@@ -81,3 +81,29 @@ def place_paths(
         if len(points) >= 2:
             placed.append(points)
     return placed
+
+
+def fit_to_screen(paths, width: int, height: int, *, margin: float = 0.06):
+    """Scale paths to fill the device screen, keeping shape and a clear margin.
+
+    What the desktop app does by dragging, for callers that have no canvas to
+    drag on - the JSON engine, the command line, a test.
+    """
+    points = [point for path in paths for point in path]
+    if not points:
+        return []
+
+    min_x = min(x for x, _ in points)
+    max_x = max(x for x, _ in points)
+    min_y = min(y for _, y in points)
+    max_y = max(y for _, y in points)
+    source_width = max(max_x - min_x, 1)
+    source_height = max(max_y - min_y, 1)
+
+    pad_x, pad_y = width * margin, height * margin
+    scale = min((width - 2 * pad_x) / source_width, (height - 2 * pad_y) / source_height)
+    offset_x = pad_x + (width - 2 * pad_x - source_width * scale) / 2 - min_x * scale
+    offset_y = pad_y + (height - 2 * pad_y - source_height * scale) / 2 - min_y * scale
+
+    return [[(round(x * scale + offset_x), round(y * scale + offset_y)) for x, y in path]
+            for path in paths]

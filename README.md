@@ -137,7 +137,9 @@ This repository is two things:
   over ADB. Records gestures, replays them, drives raw `/dev/input` events. Pure
   standard library; the core has no dependencies at all.
 - **`AutoDraw`** — a desktop app built on it, for people who would rather click
-  buttons than write code.
+  buttons than write code. There are two front ends: a portable one in Python
+  that runs anywhere, and a native WinUI 3 one for Windows. Both drive the same
+  engine over a pipe, so neither has its own idea of how anything works.
 
 ---
 

@@ -40,3 +40,7 @@ screen_tmp.png
 
 # Superseded by adbtouch/injector.jar, which ships inside the package
 /injector/*.jar
+
+# C# build output
+/winui/bin/
+/winui/obj/
