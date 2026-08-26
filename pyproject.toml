@@ -8,7 +8,7 @@ version = "1.1.0"
 description = "Fast synthetic touch input, gesture recording, replay and image drawing for Android over ADB"
 readme = "README.md"
 requires-python = ">=3.9"
-license = { file = "LICENSE" }
+license = "AGPL-3.0-only"
 authors = [{ name = "Maxim Averyanov" }]
 keywords = [
     "android", "adb", "touch", "touch-simulation", "automation", "android-automation",
@@ -17,6 +17,7 @@ keywords = [
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: GNU Affero General Public License v3",
     "Intended Audience :: Developers",
     "Intended Audience :: End Users/Desktop",
     "Operating System :: OS Independent",

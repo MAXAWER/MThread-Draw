@@ -95,7 +95,7 @@ class VectorizerTests(unittest.TestCase):
     def test_retrace_removal_shortens_the_output(self):
         """Specific to the Canny path: XDoG walks each line once, so there is
         no second pass down the other side of it to remove."""
-        settings = VectorizeSettings(method="canny", target_width=None, epsilon=1.0)
+        settings = VectorizeSettings(method="contour", target_width=None, epsilon=1.0)
         _, deduped = self.vectorizer.process(settings)
         deduped_points = sum(len(p) for p in deduped)
 

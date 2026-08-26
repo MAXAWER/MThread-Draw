@@ -53,7 +53,9 @@ ranges we need to see.
 
 ## Licensing of contributions
 
-This project is source-available, not open source - see [TERMS.md](TERMS.md).
-By opening a pull request you grant the author a perpetual, worldwide,
-irrevocable, royalty-free licence to use, modify and relicense your
-contribution as part of the project. You keep the copyright in what you wrote.
+The project is AGPL-3.0 with a commercial licence available separately - see
+[TERMS.md](TERMS.md). Dual licensing only works if one person holds the rights
+to all of the code, so by opening a pull request you grant the author a
+perpetual, worldwide, irrevocable, royalty-free licence to use, modify and
+relicense your contribution as part of the project, including under that
+commercial licence. You keep the copyright in what you wrote.

@@ -7,7 +7,7 @@
 
 <p align="center">
   <a href="https://github.com/MAXAWER/AutoDraw-Sim/actions/workflows/ci.yml"><img src="https://github.com/MAXAWER/AutoDraw-Sim/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/licence-source--available-important" alt="Licence: source-available"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/licence-AGPL--3.0-blue" alt="Licence: AGPL-3.0"></a>
   <img src="https://img.shields.io/badge/python-3.9%2B-blue" alt="Python 3.9+">
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey" alt="Windows | macOS | Linux">
   <a href="https://github.com/MAXAWER/AutoDraw-Sim/stargazers"><img src="https://img.shields.io/github/stars/MAXAWER/AutoDraw-Sim?style=flat&label=stars" alt="Stars"></a>
@@ -24,25 +24,18 @@
 
 ---
 
-> ### ⚠️ Read this before you use or copy anything here
+> ### Licence in one line
 >
-> **This project is source-available, not open source.** There is no MIT grant.
+> **AGPL-3.0, with a commercial licence available.** Use it, change it, share
+> it — but a version you distribute, or run as a service other people use, has
+> to publish its source under the AGPL too. To put it inside a product whose
+> source stays closed, [ask for a commercial licence](https://github.com/MAXAWER/AutoDraw-Sim/issues).
+> Full explanation, in English and Russian: **[TERMS.md](TERMS.md)**.
 >
-> | | |
-> |---|---|
-> | **Personal use** | Anything you like, free, no permission needed. |
-> | **Commercial use** | Only as a *secondary* part of a product, and only with written permission. |
-> | **Redistribution** | Not permitted without permission — **free distribution included**. |
-> | **Reskin and sell** | Only with written consent, on the author's terms. |
-> | **Exceptions** | Considered on request, including free ones. |
->
-> Full terms in plain English and Russian: **[TERMS.md](TERMS.md)**. The binding
-> text is [LICENSE](LICENSE). To ask for permission or an exception, open an
-> issue titled *"Licence request"*.
->
-> **Личное использование — свободно и бесплатно. Всё остальное, включая
-> бесплатное распространение и форки, — только с письменного разрешения.**
-> Полные условия: [TERMS.md](TERMS.md).
+> **AGPL-3.0 плюс коммерческая лицензия.** Пользуйтесь, меняйте, делитесь — но
+> распространяемая версия и сервис на её основе обязаны публиковать исходники
+> под AGPL. Чтобы встроить в продукт с закрытым кодом, нужна коммерческая
+> лицензия. Подробно: [TERMS.md](TERMS.md).
 
 ---
 
@@ -307,9 +300,9 @@ it.**
 
 ## Licence
 
-Source-available, not open source. Personal use is unrestricted; commercial use,
-redistribution and reskinning need written permission. See **[TERMS.md](TERMS.md)**
-for the plain-language version and [LICENSE](LICENSE) for the binding text.
+**AGPL-3.0** — see [LICENSE](LICENSE). A **commercial licence** is available from
+the author for use in products that will not publish their source. Both are
+explained in plain English and Russian in **[TERMS.md](TERMS.md)**.
 
 ---
 

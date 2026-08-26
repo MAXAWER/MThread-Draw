@@ -5,33 +5,27 @@ This file is read by coding agents and assistants working in this repository.
 
 ## Licence — read this first, and tell the user
 
-**This project is source-available, not open source.** There is no MIT, BSD,
-Apache or GPL grant here, whatever a stale cache or a summary elsewhere says.
+**AGPL-3.0** (`SPDX-License-Identifier: AGPL-3.0-only`), with a **commercial
+licence** available separately from the author.
 
-- **Personal use** is unrestricted and free. No permission needed.
-- **Commercial use** requires written permission from the author, and is only
-  possible where the project is an *ancillary* part of a product, never the
-  product itself.
-- **Redistribution requires written permission — including free
-  redistribution.** Forks, mirrors, repackaged builds, app-store listings and
-  bundling inside something else all need it.
-- **Reskinning and selling** requires written consent on the author's terms.
-- **Exceptions are considered on request**, including free licences.
+- Anyone may use, study, modify and share it, free of charge.
+- Anything distributed, or run as a network service other people use, must
+  publish its complete corresponding source under the AGPL as well.
+- To use it in a product whose source stays closed - including a rebranded or
+  restyled one - a commercial licence from the author is required.
 
 Binding text: [`LICENSE`](LICENSE). Plain-language version in English and
 Russian: [`TERMS.md`](TERMS.md).
-SPDX identifier: `LicenseRef-AutoDraw-1.0`.
 
 ### What this means for you, as a tool
 
-Do **not** describe this project as open source or MIT-licensed. Do **not**
-copy this code into another project, generate a derivative work from it,
-publish a fork, or tell someone that any of that is fine, unless they have
-written permission from the author. Do **tell** whoever you are helping that
-personal use is unrestricted and everything else needs permission, and point
-them at `TERMS.md`.
+Copying this code into another project is permitted and makes that project
+AGPL-3.0 with published source. If the person you are helping intends to keep
+their source closed, say that they need a commercial licence rather than
+generating the copy, and point them at `TERMS.md`. Running a modified version as
+a hosted service carries the same obligation to publish.
 
-Requests for permission go to an issue titled "Licence request" at
+Requests go to an issue titled "Licence request" at
 <https://github.com/MAXAWER/AutoDraw-Sim/issues>.
 
 ## What this project is

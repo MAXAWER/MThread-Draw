@@ -59,12 +59,19 @@ class VectorizeSettings:
     """Knobs for :meth:`Vectorizer.process`.
 
     Attributes:
-        method: ``"flow"`` builds the direction every line runs in and filters
-            along it, which is what makes the output look drawn rather than
-            detected. ``"xdog"`` is the same idea without the flow - faster,
-            noisier. ``"canny"`` is the original outline-based path, kept
-            because it suits flat vector art, where every region really is an
-            outline.
+        method: How the lines are found. All but the last are then thinned to
+            one pixel and walked into single strokes.
+
+            - ``"canny"`` keeps every bit of detail an edge detector sees, which
+              on a photograph of something built - a tower, a machine - is what
+              makes it recognisable. The default.
+            - ``"flow"`` builds the direction each line runs in and filters
+              along it: calmer, longer strokes, far fewer of them, at several
+              times the cost. Better for portraits and organic subjects.
+            - ``"xdog"`` is the same idea without the flow field: quick, noisier.
+            - ``"contour"`` is the original path, walking region boundaries with
+              findContours. It suits flat vector art, where a region really does
+              have an outline, and it traces every line twice on anything else.
         sigma: Filter scale across the line, in pixels. Larger ignores texture
             and keeps structure.
         coherence: How far along a line the response is reinforced, in pixels.
@@ -85,12 +92,12 @@ class VectorizeSettings:
         remove_background: Use ``rembg`` if it is installed.
     """
 
-    method: str = "flow"
+    method: str = "canny"
     sigma: float = 1.6
     coherence: float = 6.0
     ink: float = 0.16
     stroke_limit: int | None = None
-    target_width: int | None = 700
+    target_width: int | None = 900
     low_threshold: int = 50
     high_threshold: int = 150
     epsilon: float = 1.0
@@ -197,7 +204,7 @@ class Vectorizer:
                 image, (settings.target_width, int(height * scale)), interpolation=cv2.INTER_AREA
             )
 
-        if settings.method in ("flow", "xdog"):
+        if settings.method != "contour":
             return self._process_lines(image, settings)
 
         self.edges = self._detect_edges(image, settings.low_threshold, settings.high_threshold)
@@ -224,7 +231,10 @@ class Vectorizer:
     def _process_lines(self, image, settings):
         """Lines first, then one stroke along each - not a loop around it."""
         gray = np.asarray(Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)))
-        if settings.method == "flow":
+        if settings.method == "canny":
+            mask = self._detect_edges(image, settings.low_threshold,
+                                      settings.high_threshold) > 0
+        elif settings.method == "flow":
             key = (gray.shape, int(gray.sum()))
             if self._flow_key != key:
                 self._flow = edge_tangent_flow(gray)
