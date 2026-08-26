@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import math
 
-__all__ = ["join_strokes", "drop_specks", "stroke_length", "tidy"]
+__all__ = ["join_strokes", "drop_specks", "simplify", "stroke_length", "tidy"]
 
 
 def stroke_length(path) -> float:
@@ -95,3 +95,41 @@ def tidy(paths, *, join_tolerance: float = 6.0, min_length: float = 8.0):
     if min_length > 0:
         paths = drop_specks(paths, min_length)
     return paths
+
+
+def simplify(path, epsilon: float = 1.2):
+    """Douglas-Peucker: drop points that were on the line anyway.
+
+    A skeleton is one point per pixel, which is far more than a stroke needs -
+    and on a device every point costs time. Keeping only the points that carry
+    the shape typically removes four fifths of them and changes nothing visible.
+    """
+    if len(path) < 3 or epsilon <= 0:
+        return list(path)
+
+    keep = [False] * len(path)
+    keep[0] = keep[-1] = True
+    stack = [(0, len(path) - 1)]
+
+    while stack:
+        start, end = stack.pop()
+        (x1, y1), (x2, y2) = path[start], path[end]
+        dx, dy = x2 - x1, y2 - y1
+        span = math.hypot(dx, dy)
+
+        worst, worst_index = 0.0, None
+        for index in range(start + 1, end):
+            x, y = path[index]
+            if span < 1e-9:
+                distance = math.hypot(x - x1, y - y1)
+            else:
+                distance = abs(dy * x - dx * y + x2 * y1 - y2 * x1) / span
+            if distance > worst:
+                worst, worst_index = distance, index
+
+        if worst_index is not None and worst > epsilon:
+            keep[worst_index] = True
+            stack.append((start, worst_index))
+            stack.append((worst_index, end))
+
+    return [point for point, kept in zip(path, keep) if kept]

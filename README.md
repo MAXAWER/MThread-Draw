@@ -7,7 +7,7 @@
 
 <p align="center">
   <a href="https://github.com/MAXAWER/AutoDraw-Sim/actions/workflows/ci.yml"><img src="https://github.com/MAXAWER/AutoDraw-Sim/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/licence-AGPL--3.0-blue" alt="Licence: AGPL-3.0"></a>
   <img src="https://img.shields.io/badge/python-3.9%2B-blue" alt="Python 3.9+">
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey" alt="Windows | macOS | Linux">
   <a href="https://github.com/MAXAWER/AutoDraw-Sim/stargazers"><img src="https://img.shields.io/github/stars/MAXAWER/AutoDraw-Sim?style=flat&label=stars" alt="Stars"></a>
@@ -18,9 +18,24 @@
 </p>
 
 <p align="center">
-  <sub>An ordinary colour PNG in, 215 strokes and 1,542 touch points out — the exact path list <code>adbtouch</code> sends to the device, in the order it draws them.<br>
-  Rendered from a real run of the vectoriser by <a href="tools/make_demo.py"><code>tools/make_demo.py</code></a>; playback speed here is arbitrary.</sub>
+  <sub>A photograph in — NASA's Endeavour on pad 39A — and 294 strokes, 2,327 touch points out: the exact path list <code>adbtouch</code> sends to the device, in the order it draws them.<br>
+  On a Pixel 8 Pro that draws in about five seconds. Rendered from a real run by <a href="tools/make_demo.py"><code>tools/make_demo.py</code></a>; playback speed here is arbitrary.</sub>
 </p>
+
+---
+
+> ### Licence in one line
+>
+> **AGPL-3.0, with a commercial licence available.** Use it, change it, share
+> it — but a version you distribute, or run as a service other people use, has
+> to publish its source under the AGPL too. To put it inside a product whose
+> source stays closed, [ask for a commercial licence](https://github.com/MAXAWER/AutoDraw-Sim/issues).
+> Full explanation, in English and Russian: **[TERMS.md](TERMS.md)**.
+>
+> **AGPL-3.0 плюс коммерческая лицензия.** Пользуйтесь, меняйте, делитесь — но
+> распространяемая версия и сервис на её основе обязаны публиковать исходники
+> под AGPL. Чтобы встроить в продукт с закрытым кодом, нужна коммерческая
+> лицензия. Подробно: [TERMS.md](TERMS.md).
 
 ---
 
@@ -62,10 +77,16 @@ Device().draw_paths([[(100, 200), (400, 200), (400, 600)]])
   <img src="docs/pipeline.png" width="900" alt="Source image, detected edges, and the resulting stroke paths">
 </p>
 
-Feed it an ordinary picture — colour, no preparation. Edges are detected with
-Canny, contours are traced, retraced double lines are collapsed, and what is left
-is a list of polylines. The scene above is `examples/castle.png`; nothing about it
-was drawn as line art first.
+Feed it an ordinary photograph. XDoG decides where the lines are, the result is
+thinned to one pixel of width, and each line is then walked into a single stroke
+— not an outline around it. The picture above is `examples/launchpad.jpg`,
+untouched.
+
+Canny, the obvious choice, is available as `method="canny"` and is the wrong one
+for photographs: it answers "where does brightness change", which on a photograph
+means every texture and every shadow, and it answers in outlines, so one line
+comes back as two. On this photograph it produced 715 strokes and 11,470 points
+of porridge where XDoG gives 294 strokes and 2,327 points that read as a drawing.
 
 Colour is what gets lost: a finger draws one black line, so the output is always
 a line drawing. Illustrations and line art come out closest to the original,
@@ -116,7 +137,9 @@ This repository is two things:
   over ADB. Records gestures, replays them, drives raw `/dev/input` events. Pure
   standard library; the core has no dependencies at all.
 - **`AutoDraw`** — a desktop app built on it, for people who would rather click
-  buttons than write code.
+  buttons than write code. There are two front ends: a portable one in Python
+  that runs anywhere, and a native WinUI 3 one for Windows. Both drive the same
+  engine over a pipe, so neither has its own idea of how anything works.
 
 ---
 
@@ -277,9 +300,11 @@ report can be handled.
 **If this saved you an afternoon, a ⭐ costs nothing and is how anyone else finds
 it.**
 
-## License
+## Licence
 
-MIT — see [LICENSE](LICENSE).
+**AGPL-3.0** — see [LICENSE](LICENSE). A **commercial licence** is available from
+the author for use in products that will not publish their source. Both are
+explained in plain English and Russian in **[TERMS.md](TERMS.md)**.
 
 ---
 

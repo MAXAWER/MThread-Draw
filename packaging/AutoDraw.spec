@@ -80,6 +80,38 @@ collected = COLLECT(
     name="AutoDraw",
 )
 
+# The same engine again, as a console program the WinUI front end can launch.
+# It shares the analysis, so it costs a second link rather than a second scan.
+engine_analysis = Analysis(
+    [str(ROOT / "tools" / "engine_entry.py")],
+    pathex=[str(ROOT)],
+    binaries=[],
+    datas=datas,
+    hiddenimports=["customtkinter", "adbtouch.vectorize"],
+    excludes=["rembg", "onnxruntime", "matplotlib", "pytest", "tkinter.test"],
+    noarchive=False,
+)
+engine_pyz = PYZ(engine_analysis.pure)
+engine_exe = EXE(
+    engine_pyz,
+    engine_analysis.scripts,
+    [],
+    exclude_binaries=True,
+    name="autodraw-engine",
+    debug=False,
+    strip=False,
+    upx=False,
+    console=True,
+)
+engine = COLLECT(
+    engine_exe,
+    engine_analysis.binaries,
+    engine_analysis.datas,
+    strip=False,
+    upx=False,
+    name="autodraw-engine",
+)
+
 if IS_MAC:
     app = BUNDLE(
         collected,

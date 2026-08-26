@@ -1,0 +1,59 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    A WinUI 3 front end for the AutoDraw engine.
+
+    It draws the window and nothing else: tracing, ADB and touch injection all
+    live in the Python engine, which this launches as a child process and talks
+    to over a pipe. That is the only arrangement that keeps one implementation
+    of the interesting parts for Windows, macOS and Linux alike.
+
+    Unpackaged, and self-contained when published, so a release is a folder you
+    can run rather than a runtime you have to install first.
+  -->
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <RootNamespace>AutoDraw</RootNamespace>
+    <AssemblyName>AutoDraw</AssemblyName>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Platforms>x64;ARM64</Platforms>
+    <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
+    <UseWinUI>true</UseWinUI>
+    <WindowsPackageType>None</WindowsPackageType>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <ApplicationIcon>..\packaging\autodraw.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.4.0" />
+  </ItemGroup>
+
+  <!--
+    Publishing an unpackaged WinUI app leaves the compiled XAML behind.
+
+    The XAML compiler writes App.xbf, MainWindow.xbf and the resource index
+    beside the assembly, and the publish pipeline does not carry them: it
+    publishes what the packaging tooling nominates, and an unpackaged project
+    has no packaging tooling. The application then starts, fails to find its own
+    markup inside InitializeComponent, and dies with a stowed exception from
+    Microsoft.UI.Xaml.dll that names nothing useful. Building works, which is
+    what makes it puzzling.
+
+    Copying them afterwards is blunt and it is correct.
+  -->
+  <Target Name="CopyCompiledXamlAfterPublish" AfterTargets="Publish">
+    <ItemGroup>
+      <_CompiledXaml Include="$(OutDir)*.xbf" />
+      <_CompiledXaml Include="$(OutDir)$(AssemblyName).pri"
+                     Condition="Exists('$(OutDir)$(AssemblyName).pri')" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_CompiledXaml)" DestinationFolder="$(PublishDir)" SkipUnchangedFiles="true" />
+  </Target>
+
+</Project>

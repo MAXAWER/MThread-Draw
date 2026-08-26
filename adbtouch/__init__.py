@@ -38,6 +38,10 @@ from .touch import TouchDevice, build_stroke_events, parse_getevent_pl, pick_tou
 
 __version__ = "1.1.0"
 
+#: AGPL-3.0, with a commercial licence available from the author for use in
+#: products that will not publish their source. See TERMS.md.
+__license__ = "AGPL-3.0-only"
+
 #: Image vectorisation is the only part that needs OpenCV, so it is imported on
 #: first use. That keeps ``pip install adbtouch`` dependency-free for the common
 #: case of recording and replaying gestures.

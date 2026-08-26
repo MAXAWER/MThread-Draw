@@ -26,6 +26,33 @@ build jobs also run on any pull request that touches `packaging/` or the build
 scripts, without publishing - packaging breaks quietly, and only on the platform
 you are not developing on.
 
+## The Windows front end
+
+`winui/` is a WinUI 3 application that draws the window and nothing else. It
+launches the engine - `autodraw.server`, the same one every platform uses - as a
+child process and speaks JSON lines to it over a pipe. That is what keeps one
+implementation of tracing, ADB and touch injection rather than two.
+
+```bash
+python tools/build_app.py --winui
+```
+
+builds the engine as a console executable, publishes the front end
+self-contained, and puts the engine inside it, so the result is a folder that
+runs on a machine with nothing installed.
+
+Two things about it are not obvious and cost an afternoon each:
+
+- **Publishing loses the compiled XAML.** `App.xbf`, `MainWindow.xbf` and the
+  resource index are written beside the assembly at build time and are not
+  carried into the publish output, because an unpackaged project has no
+  packaging tooling to nominate them. The app then dies inside
+  `InitializeComponent` with a stowed exception that names nothing. The project
+  copies them afterwards.
+- **Windows App SDK 1.6 cannot build without Visual Studio**, because its PRI
+  targets load MSBuild tasks that only ship with VS. Version 2.x does not, which
+  is why the reference is pinned there.
+
 ## Building locally
 
 ```bash

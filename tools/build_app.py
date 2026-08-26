@@ -165,6 +165,34 @@ def build_dmg(app: Path) -> Path:
     return out
 
 
+def build_winui() -> Path:
+    """Publish the Windows front end with the engine folded into it.
+
+    The front end is a window and nothing more; it launches the engine as a
+    child process. Publishing self-contained means the result is a folder that
+    runs, rather than a folder plus a runtime somebody has to install first.
+    """
+    if not IS_WINDOWS:
+        raise SystemExit("--winui only works on Windows")
+
+    project = ROOT / "winui" / "AutoDraw.WinUI.csproj"
+    out = DIST / "AutoDraw-WinUI"
+    run("dotnet", "publish", project, "-c", "Release", "-r", "win-x64",
+        "--self-contained", "true", "-o", out)
+
+    engine = DIST / "autodraw-engine"
+    if not engine.is_dir():
+        raise SystemExit("the engine was not built; run without --no-adb first")
+    target = out / "engine"
+    if target.exists():
+        shutil.rmtree(target)
+    shutil.copytree(engine, target)
+
+    size = sum(f.stat().st_size for f in out.rglob("*") if f.is_file())
+    print(f"built {out} ({size // 1024 // 1024} MB)")
+    return out
+
+
 def build_archive(app: Path) -> Path:
     """A plain archive of the app folder, for people who do not want an installer."""
     stem = f"AutoDraw-{version()}-{platform.system().lower()}-{arch_tag()}"
@@ -184,6 +212,8 @@ def main() -> int:
     parser.add_argument("--msi", action="store_true", help="also build the Windows installer")
     parser.add_argument("--dmg", action="store_true", help="also build the macOS disk image")
     parser.add_argument("--archive", action="store_true", help="also build a zip / tar.gz")
+    parser.add_argument("--winui", action="store_true",
+                        help="also publish the WinUI 3 front end with the engine inside it")
     parser.add_argument("--no-adb", action="store_true", help="do not bundle platform-tools")
     args = parser.parse_args()
 
@@ -196,6 +226,8 @@ def main() -> int:
         build_msi(app)
     if args.dmg:
         build_dmg(app)
+    if args.winui:
+        build_winui()
     if args.archive:
         build_archive(app)
     return 0

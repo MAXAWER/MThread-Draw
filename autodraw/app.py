@@ -25,6 +25,13 @@ SESSION_TYPES = [("AutoDraw recording", "*.json"), ("All files", "*.*")]
 class App:
     """Main window. Owns the device connection shared by both tabs."""
 
+    #: Plain words for the two tracing methods, because "Canny" and "edge
+    #: tangent flow" tell somebody choosing between them nothing at all.
+    TRACERS = {
+        "Buildings, machines, objects": "canny",
+        "Portraits, animals, nature": "flow",
+    }
+
     def __init__(self):
         ctk.set_appearance_mode("Dark")
         ctk.set_default_color_theme("blue")
@@ -104,6 +111,16 @@ class App:
         ctk.CTkButton(side, text="Centre on screen", fg_color="gray30", command=self.center_image).pack(
             fill="x", pady=(0, 12)
         )
+
+        ctk.CTkLabel(side, text="What is in the picture", anchor="w").pack(fill="x")
+        # Two tracers, and which one suits depends entirely on the subject
+        # rather than on any setting: one keeps every edge it can find, which is
+        # what a machine or a building is made of, and the other follows the
+        # direction lines run in, which is what a face or an animal is made of.
+        self.menu_method = ctk.CTkOptionMenu(
+            side, values=list(self.TRACERS), command=self._on_setting_change)
+        self.menu_method.set(next(iter(self.TRACERS)))
+        self.menu_method.pack(fill="x", pady=(2, 10))
 
         ctk.CTkLabel(side, text="Edge sensitivity", anchor="w").pack(fill="x")
         self.slider_sensitivity = ctk.CTkSlider(side, from_=1, to=10, number_of_steps=9, command=self._on_setting_change)
@@ -387,10 +404,15 @@ class App:
 
     # ------------------------------------------------------------------ drawing
 
+    @property
+    def tracer(self) -> str:
+        return self.TRACERS.get(self.menu_method.get(), "canny")
+
     def _settings(self) -> VectorizeSettings:
         return VectorizeSettings.from_sliders(
             self.slider_sensitivity.get(),
             self.slider_detail.get(),
+            method=self.tracer,
             remove_background=bool(self.chk_remove_bg.get()),
         )
 

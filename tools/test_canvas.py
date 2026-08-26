@@ -120,6 +120,11 @@ def main() -> int:
     width, height = device.screen_size
     url = f"http://localhost:{args.port}/canvas.html"
 
+    # A screen that has gone to sleep takes the drawing to the lock screen and
+    # the screenshot comes back black, which looks like a failure and is not.
+    device.shell("input", "keyevent", "KEYCODE_WAKEUP", check=False)
+    device.shell("input", "keyevent", "82", check=False)
+
     server = serve(args.port)
     print(f"serving {HERE / 'canvas.html'} on port {args.port}")
 
@@ -154,7 +159,9 @@ def main() -> int:
         placed = fit_to_screen(paths, width, height, margin=args.margin)
         seconds = device.estimate_duration(placed)
         print(f"{len(paths)} strokes from {args.image}, about {seconds:.0f}s")
+        started = time.perf_counter()
         drawn = device.draw_paths(placed, human=args.hand, speed=args.speed, seed=1)
+        print(f"drawing itself took {time.perf_counter() - started:.1f}s")
         print(f"drew {drawn} strokes")
 
     if args.shot:

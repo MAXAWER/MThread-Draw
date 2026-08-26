@@ -8,7 +8,9 @@ import cv2
 import numpy as np
 from PIL import Image
 
-from .paths import tidy
+from .paths import simplify, tidy
+from .flowlines import coherent_lines, edge_tangent_flow
+from .trace import rank_strokes, ridges, thin, trace_skeleton
 
 __all__ = ["VectorizeSettings", "Vectorizer", "dedupe_retrace"]
 
@@ -57,6 +59,33 @@ class VectorizeSettings:
     """Knobs for :meth:`Vectorizer.process`.
 
     Attributes:
+        method: How the lines are found. All but the last are then thinned to
+            one pixel and walked into single strokes.
+
+            - ``"neural"`` asks a trained model which edges a person would
+              draw, and is the best answer for a photograph - but it needs a
+              46 MB model downloaded first, and a few seconds to run.
+            - ``"canny"`` keeps every bit of detail an edge detector sees, which
+              on a photograph of something built - a tower, a machine - is what
+              makes it recognisable. The default.
+            - ``"flow"`` builds the direction each line runs in and filters
+              along it: calmer, longer strokes, far fewer of them, at several
+              times the cost. Better for portraits and organic subjects.
+            - ``"contour"`` is the original path, walking region boundaries with
+              findContours. It suits flat vector art, where a region really does
+              have an outline, and it traces every line twice on anything else.
+        sigma: Filter scale across the line, in pixels. Larger ignores texture
+            and keeps structure.
+        coherence: How far along a line the response is reinforced, in pixels.
+            The knob that decides between long calm strokes and short busy
+            ones; only ``"flow"`` uses it.
+        ink: Roughly what fraction of the picture becomes line, 0 to 1.
+        detail_keep: For ``"neural"``: what fraction of the edges the model
+            ranks as meaningful to actually draw. This is the quality knob for
+            that method - it is choosing what to leave out, not how sensitive
+            to be.
+        stroke_limit: Keep only this many strokes, longest first. Readability is
+            mostly about what gets left out.
         target_width: Downscale wide images to this width before edge detection.
         low_threshold / high_threshold: Canny hysteresis bounds.
         epsilon: Douglas-Peucker tolerance; larger means fewer, coarser points.
@@ -69,7 +98,13 @@ class VectorizeSettings:
         remove_background: Use ``rembg`` if it is installed.
     """
 
-    target_width: int | None = 1000
+    method: str = "canny"
+    sigma: float = 1.6
+    coherence: float = 6.0
+    ink: float = 0.16
+    detail_keep: float = 0.65
+    stroke_limit: int | None = None
+    target_width: int | None = 900
     low_threshold: int = 50
     high_threshold: int = 150
     epsilon: float = 1.0
@@ -80,11 +115,20 @@ class VectorizeSettings:
 
     @classmethod
     def from_sliders(cls, sensitivity: float, detail: float, **kwargs) -> "VectorizeSettings":
-        """Build settings from the two 1-10 sliders the GUI exposes."""
+        """Build settings from the two 1-10 sliders the GUI exposes.
+
+        Sensitivity sets how much of the picture becomes line, and detail sets
+        how finely each line is followed. Both feed the Canny knobs too, so the
+        sliders mean the same thing whichever method is in use.
+        """
         return cls(
             low_threshold=int(20 + (sensitivity - 1) * 10),
             high_threshold=int(60 + (sensitivity - 1) * 15),
-            epsilon=0.5 + (10 - detail) * 0.5,
+            ink=max(0.03, min(0.35, 0.02 + sensitivity * 0.016)),
+            sigma=max(0.8, 2.6 - detail * 0.12),
+            coherence=max(2.0, 10.0 - detail * 0.5),
+            detail_keep=max(0.25, min(0.92, 0.18 + detail * 0.075)),
+            epsilon=0.5 + (10 - detail) * 0.35,
             **kwargs,
         )
 
@@ -95,7 +139,15 @@ class Vectorizer:
     def __init__(self):
         self.original_image: np.ndarray | None = None
         self.edges: np.ndarray | None = None
+        #: Tangent field, cached against the greyscale it was built from: it is
+        #: most of what the flow method costs and none of it depends on the
+        #: settings, so moving a slider must not pay for it again.
+        self._flow: tuple | None = None
+        self._flow_key: tuple | None = None
         self.paths: list[list[tuple[int, int]]] = []
+
+    def _invalidate(self) -> None:
+        self._flow = self._flow_key = None
 
     def load_image(self, path: str) -> np.ndarray:
         """Read an image from disk into BGR form."""
@@ -103,6 +155,7 @@ class Vectorizer:
         if image is None:
             raise ValueError(f"Could not read an image from {path!r}")
         self.original_image = image
+        self._invalidate()
         return image
 
     def load_array(self, image: np.ndarray) -> np.ndarray:
@@ -159,6 +212,9 @@ class Vectorizer:
                 image, (settings.target_width, int(height * scale)), interpolation=cv2.INTER_AREA
             )
 
+        if settings.method != "contour":
+            return self._process_lines(image, settings)
+
         self.edges = self._detect_edges(image, settings.low_threshold, settings.high_threshold)
         contours, _ = cv2.findContours(self.edges, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
 
@@ -176,6 +232,44 @@ class Vectorizer:
                           min_length=settings.min_length)
 
         preview = np.full((*self.edges.shape, 3), 255, dtype=np.uint8)
+        for path in self.paths:
+            cv2.polylines(preview, [np.array(path, dtype=np.int32)], False, (0, 0, 0), 1)
+        return Image.fromarray(preview), self.paths
+
+    def _process_lines(self, image, settings):
+        """Lines first, then one stroke along each - not a loop around it."""
+        gray = np.asarray(Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)))
+        if settings.method == "neural":
+            from .neural import edge_probability
+
+            mask = ridges(edge_probability(image), keep=settings.detail_keep,
+                          seed_keep=settings.detail_keep * 0.45)
+        elif settings.method == "canny":
+            mask = self._detect_edges(image, settings.low_threshold,
+                                      settings.high_threshold) > 0
+        elif settings.method == "flow":
+            key = (gray.shape, int(gray.sum()))
+            if self._flow_key != key:
+                self._flow = edge_tangent_flow(gray)
+                self._flow_key = key
+            mask = coherent_lines(gray, sigma_c=settings.sigma,
+                                  sigma_m=settings.coherence, ink=settings.ink,
+                                  flow=self._flow)
+        else:
+            raise ValueError(f"unknown tracing method {settings.method!r}")
+        skeleton = thin(mask)
+        self.edges = (~skeleton * 255).astype(np.uint8)
+
+        paths = [simplify(path, settings.epsilon) for path in trace_skeleton(skeleton)]
+        paths = tidy(paths, join_tolerance=settings.join_tolerance,
+                     min_length=settings.min_length)
+        # Two points, not min_points: simplification turns a perfectly good
+        # straight stroke into its two endpoints, and judging a stroke by how
+        # many points it has left would throw away every straight line in the
+        # picture. Length is what matters, and tidy() has already applied it.
+        self.paths = rank_strokes(paths, settings.stroke_limit, min_points=2)
+
+        preview = np.full((*skeleton.shape, 3), 255, dtype=np.uint8)
         for path in self.paths:
             cv2.polylines(preview, [np.array(path, dtype=np.int32)], False, (0, 0, 0), 1)
         return Image.fromarray(preview), self.paths
