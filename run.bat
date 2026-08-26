@@ -1,0 +1,38 @@
+@echo off
+rem One-click launcher for Windows: builds a virtual environment on first run,
+rem then starts the AutoDraw desktop app. Double-click it.
+setlocal
+cd /d "%~dp0"
+
+set "PY=venv\Scripts\python.exe"
+
+if not exist "%PY%" (
+    echo Creating a virtual environment in venv\ ...
+    python -m venv venv
+    if errorlevel 1 (
+        echo.
+        echo Could not create a virtual environment.
+        echo Install Python 3.9 or newer from https://www.python.org/downloads/
+        echo and tick "Add python.exe to PATH" during setup.
+        pause
+        exit /b 1
+    )
+
+    echo Installing AutoDraw and its dependencies. This takes a minute the first time ...
+    "%PY%" -m pip install --upgrade pip
+    "%PY%" -m pip install -e ".[gui]"
+    if errorlevel 1 (
+        echo.
+        echo Installation failed - see the output above.
+        pause
+        exit /b 1
+    )
+)
+
+"%PY%" -m autodraw
+if errorlevel 1 (
+    echo.
+    echo AutoDraw exited with an error. Check that adb is installed and that
+    echo USB debugging is enabled on the phone.
+    pause
+)

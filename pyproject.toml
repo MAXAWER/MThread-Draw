@@ -4,20 +4,31 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "adbtouch"
-version = "0.2.0"
-description = "Fast synthetic touch input, gesture recording and replay for Android over ADB"
+version = "1.1.0"
+description = "Fast synthetic touch input, gesture recording, replay and image drawing for Android over ADB"
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }
 authors = [{ name = "Maxim Averyanov" }]
-keywords = ["android", "adb", "touch", "automation", "testing", "getevent", "sendevent", "qa"]
+keywords = [
+    "android", "adb", "touch", "touch-simulation", "automation", "android-automation",
+    "mobile-automation", "testing", "qa", "getevent", "sendevent", "autoclicker",
+    "drawing", "emulator", "gesture", "screen-recording",
+]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
+    "Intended Audience :: End Users/Desktop",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Topic :: Software Development :: Testing",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Multimedia :: Graphics",
     "Topic :: System :: Emulators",
 ]
 dependencies = []
@@ -27,10 +38,13 @@ draw = ["opencv-python>=4.5", "numpy>=1.21", "Pillow>=9.0"]
 gui = ["adbtouch[draw]", "customtkinter>=5.2"]
 bg = ["rembg>=2.0"]
 dev = ["pytest>=7.0"]
+all = ["adbtouch[gui,bg]"]
 
 [project.urls]
 Homepage = "https://github.com/MAXAWER/AutoDraw-Sim"
+Source = "https://github.com/MAXAWER/AutoDraw-Sim"
 Issues = "https://github.com/MAXAWER/AutoDraw-Sim/issues"
+Changelog = "https://github.com/MAXAWER/AutoDraw-Sim/blob/main/CHANGELOG.md"
 
 [project.scripts]
 adbtouch = "adbtouch.cli:main"

@@ -34,7 +34,7 @@ from .recorder import Recorder, parse_getevent_line
 from .session import InputEvent, Session
 from .touch import TouchDevice, build_stroke_events, parse_getevent_pl, pick_touchscreen
 
-__version__ = "0.2.0"
+__version__ = "1.1.0"
 
 #: Image vectorisation is the only part that needs OpenCV, so it is imported on
 #: first use. That keeps ``pip install adbtouch`` dependency-free for the common

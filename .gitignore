@@ -29,3 +29,6 @@ venv/
 # Recordings and captures
 *.session.json
 screen_tmp.png
+
+# Local virtualenvs
+.venv/
