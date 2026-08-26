@@ -14,11 +14,11 @@
 </p>
 
 <p align="center">
-  <img src="docs/demo.gif" width="900" alt="A colour landscape being traced into touch strokes and drawn on a phone screen">
+  <img src="docs/demo.gif" width="900" alt="A colour photograph of a cat being traced into touch strokes and drawn on a phone screen">
 </p>
 
 <p align="center">
-  <sub>A photograph in — NASA's Endeavour on pad 39A — and 294 strokes, 2,327 touch points out: the exact path list <code>adbtouch</code> sends to the device, in the order it draws them.<br>
+  <sub>An ordinary photograph in, 283 strokes and 1,528 touch points out: the exact path list <code>adbtouch</code> sends to the device, in the order it draws them.<br>
   On a Pixel 8 Pro that draws in about five seconds. Rendered from a real run by <a href="tools/make_demo.py"><code>tools/make_demo.py</code></a>; playback speed here is arbitrary.</sub>
 </p>
 
@@ -74,19 +74,39 @@ Device().draw_paths([[(100, 200), (400, 200), (400, 600)]])
 ## How an image becomes touches
 
 <p align="center">
-  <img src="docs/pipeline.png" width="900" alt="Source image, detected edges, and the resulting stroke paths">
+  <img src="docs/pipeline.png" width="900" alt="Source photograph, the lines the tracer finds, and the resulting stroke paths">
 </p>
 
-Feed it an ordinary photograph. XDoG decides where the lines are, the result is
-thinned to one pixel of width, and each line is then walked into a single stroke
-— not an outline around it. The picture above is `examples/launchpad.jpg`,
-untouched.
+Feed it an ordinary photograph. A tracer decides where the lines are, the result
+is thinned to one pixel of width, and each line is then walked into a single
+stroke — not an outline *around* the line, which is what draws everything twice.
+The picture above is `examples/guitar.jpg`, untouched: 57 strokes, 478 points.
 
-Canny, the obvious choice, is available as `method="canny"` and is the wrong one
-for photographs: it answers "where does brightness change", which on a photograph
-means every texture and every shadow, and it answers in outlines, so one line
-comes back as two. On this photograph it produced 715 strokes and 11,470 points
-of porridge where XDoG gives 294 strokes and 2,327 points that read as a drawing.
+There are two tracers, and the app picks between them by asking what is in the
+picture rather than which algorithm you would like:
+
+| What you say is in it | What runs | Why that one |
+|---|---|---|
+| **Buildings, machines, objects** | Canny edges, thinned, then walked into strokes | Keeps every bit of structure an edge detector sees — which is what a machine, a tower or a building is made of. |
+| **Portraits, animals, nature** | Flow-based coherent lines, after Kang, Lee and Chui | Works out the direction each line runs in and filters along it. Calmer, longer strokes, and a face stays a face instead of becoming film grain. |
+
+Neither wins everywhere, which is why both are still here. There is also an
+opt-in third method, `method="neural"`, which asks a trained model which edges
+matter; it needs a 46 MB download and a few seconds, and it is better than both
+on some photographs and worse than both on grainy ones.
+
+### The same pipeline, four photographs
+
+<p align="center">
+  <img src="docs/examples.png" width="900" alt="Four photographs and the line drawings traced from them: a guitar, a motorcycle, a cat and a lighthouse">
+</p>
+
+Nothing was prepared, retouched or masked — these are the files in
+[`examples/`](examples/), resized and otherwise untouched. The only thing that
+differs between the columns is the two sliders every user has: the cat gets one
+notch more *Detail*, and the lighthouse one notch less *Edge sensitivity*,
+because it stands under a sky full of stars and every star is an edge.
+`python tools/make_demo.py` reproduces the whole picture.
 
 Colour is what gets lost: a finger draws one black line, so the output is always
 a line drawing. Illustrations and line art come out closest to the original,
@@ -374,10 +394,32 @@ python tools/fetch_platform_tools.py     # ~7 МБ, прямо от Google
 
 ## Как картинка превращается в касания
 
-Подаёте обычное цветное изображение, ничего готовить заранее не нужно. Границы
-находятся детектором Кэнни, контуры трассируются, двойные обводки схлопываются —
-на выходе список ломаных линий. Пейзаж выше это `examples/castle.png`, он не был
-контурным рисунком.
+Подаёте обычную фотографию, готовить её заранее не нужно. Трассировщик находит
+линии, результат утончается до одного пикселя, и каждая линия проходится одним
+штрихом — не обводится по контуру, иначе всё рисовалось бы дважды. Гитара выше
+это `examples/guitar.jpg` без единой правки: 57 штрихов, 478 точек.
+
+Трассировщика два, и приложение спрашивает не про алгоритм, а про то, что на
+фотографии:
+
+| Что на фотографии | Что работает | Почему именно это |
+|---|---|---|
+| **Здания, техника, объекты** | Границы по Кэнни, утончение, обход в штрихи | Сохраняет всю структуру, которую видит детектор границ, — а машина или башня из неё и состоит. |
+| **Портреты, животные, природа** | Когерентные линии по направлению потока | Считает, куда идёт каждая линия, и фильтрует вдоль неё: штрихи длиннее и спокойнее, лицо остаётся лицом, а не зерном плёнки. |
+
+Ни один не выигрывает везде — поэтому остались оба. Есть и третий, по желанию:
+`method="neural"` спрашивает у обученной модели, какие границы важны; ему нужны
+46 МБ модели и несколько секунд.
+
+<p align="center">
+  <img src="docs/examples.png" width="900" alt="Четыре фотографии и штриховые рисунки, полученные из них">
+</p>
+
+Ничего не готовилось и не ретушировалось: это файлы из [`examples/`](examples/),
+только уменьшенные. Между колонками отличаются лишь те два ползунка, что есть у
+любого пользователя: коту добавлена одна ступень *Detail*, маяку убрана одна
+ступень *Edge sensitivity* — он стоит под звёздным небом, а каждая звезда это
+граница. Всю картинку целиком собирает `python tools/make_demo.py`.
 
 Теряется цвет: палец рисует одну чёрную линию, поэтому результат всегда штриховой.
 Ближе всего к оригиналу выходят иллюстрации и контурные рисунки, из фотографии
