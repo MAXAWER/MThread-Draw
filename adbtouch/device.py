@@ -3,14 +3,18 @@
 from __future__ import annotations
 
 import os
+import math
+import random
 import re
 import tempfile
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Iterable, Sequence
 
 from .adb import find_adb, popen_adb, run_adb
 from .errors import DeviceNotConnectedError, TouchDeviceNotFoundError
+from .hand import HandSettings, simulate
+from .injector import InjectorUnavailableError, Pacing, TouchInjector
 from .touch import TouchDevice, build_stroke_events, parse_getevent_pl, pick_touchscreen
 
 __all__ = ["DeviceInfo", "Device", "list_devices"]
@@ -38,6 +42,7 @@ class DeviceInfo:
             "offline": "offline - reconnect the cable",
             "unauthorized": "unauthorized - confirm the USB debugging prompt on the phone",
         }.get(self.state, self.state)
+
 
 
 def list_devices(adb_path: str | None = None) -> list[DeviceInfo]:
@@ -73,11 +78,23 @@ class Device:
         self.serial = serial
         self._touch_device: TouchDevice | None = None
         self._screen_size: tuple[int, int] | None = None
+        self._supports_raw: bool | None = None
+        #: Set when the injector refused to start and the slow path was used.
+        self.injector_error = False
 
     # ------------------------------------------------------------------ basics
 
     def _args(self, extra: Sequence) -> list:
         return ["-s", self.serial, *extra]
+
+    def adb(self, *command, timeout: float | None = 30.0, check: bool = True):
+        """Run an ``adb`` command against this device.
+
+        For the subcommands that are not shell commands - ``reverse``,
+        ``forward``, ``install``, ``push`` - which callers would otherwise have
+        to assemble the ``-s <serial>`` themselves for.
+        """
+        return run_adb(self.adb_path, self._args(command), timeout=timeout, check=check)
 
     def shell(self, *command, timeout: float | None = 30.0, check: bool = True):
         """Run a shell command on the device and return the completed process."""
@@ -172,6 +189,31 @@ class Device:
             self._touch_device = picked
         return self._touch_device
 
+    @property
+    def supports_raw_touch(self) -> bool:
+        """Whether this device lets the shell user write to ``/dev/input``.
+
+        On a Pixel running a recent Android it does not, and not because of file
+        permissions: the node is ``crw-rw---- root input`` and the shell user is
+        in the ``input`` group, but SELinux denies the ``shell`` domain the write
+        anyway. ``sendevent`` then fails per line with "Permission denied" while
+        the script as a whole exits cleanly - which looks exactly like a program
+        that draws nothing for no reason.
+
+        So it is probed once, with a bare ``SYN_REPORT`` that changes nothing
+        even where it does land.
+        """
+        if self._supports_raw is None:
+            try:
+                path = self.touch_device.path
+            except TouchDeviceNotFoundError:
+                self._supports_raw = False
+                return self._supports_raw
+            proc = self.shell("sendevent", path, "0", "0", "0", check=False)
+            output = (proc.stdout or "") + (proc.stderr or "")
+            self._supports_raw = proc.returncode == 0 and "denied" not in output.lower()
+        return self._supports_raw
+
     def input_devices(self) -> list[TouchDevice]:
         """Every ``/dev/input`` device the phone exposes, with its axis ranges."""
         out = self.shell("getevent", "-pl", timeout=20.0).stdout
@@ -181,19 +223,151 @@ class Device:
         self,
         paths: Sequence[Sequence[tuple[float, float]]],
         *,
+        method: str = "auto",
+        speed: float = 1.0,
+        human: float = 0.0,
+        seed: int | None = None,
+        hand_settings: HandSettings | None = None,
+        pacing: Pacing | None = None,
         point_delay_ms: int = 0,
         stroke_delay_ms: int = 20,
         chunk_size: int = 4000,
         progress=None,
         should_continue=None,
     ) -> int:
-        """Draw *paths* (display pixel coordinates) using raw touch events.
+        """Draw *paths* (display pixel coordinates) and return the strokes sent.
 
-        Returns the number of strokes actually sent. Pass *should_continue* to
-        support cancellation; it is polled once per stroke.
+        Args:
+            method: ``"raw"`` writes kernel events directly. ``"injector"``
+                streams points to a small process running on the device, which
+                is the only path where the time between points is ours to
+                choose - and therefore the only one that can look like a hand.
+                ``"input"`` shells out to the ``input`` command once per point,
+                which needs nothing installed but costs about 110 ms each.
+                ``"auto"`` takes raw where it is allowed, the injector where it
+                is not, and ``input`` if even that fails.
+            speed: Multiplier on the pacing. Above 1 draws faster, below 1
+                slower. It cannot make ``"input"`` quick - that path costs about
+                a tenth of a second per point whatever happens - but it does let
+                either path be slowed to something a person could have done.
+            human: 0 draws the geometry exactly. Above 0 hands the paths to
+                :func:`adbtouch.hand.simulate`, which rounds the corners, varies
+                the pen speed, adds tremor, overshoots the ends and reorders the
+                strokes into the sequence a person would use. 1.0 is a steady
+                hand, 3.0 a careless one. Note that it changes the point count,
+                and so the time the drawing takes.
+            hand_settings: Full control over the simulation; see
+                :class:`adbtouch.hand.HandSettings`.
+            pacing: Timing for the injector path; see
+                :class:`adbtouch.injector.Pacing`. Defaults to hand speed when
+                *human* is set and to as-fast-as-possible when it is not.
+            seed: Fixes the randomness, so a "human" drawing can be repeated.
+            progress: Called with ``(done, total)`` as strokes are sent.
+            should_continue: Polled once per stroke; return False to stop.
+        """
+        if method not in ("auto", "raw", "input", "injector"):
+            raise ValueError(f"unknown drawing method {method!r}")
+        if method == "auto":
+            method = "raw" if self.supports_raw_touch else "injector"
+
+        shaped = simulate(paths, human, seed, hand_settings) if human else paths
+
+        if method == "raw":
+            return self._draw_paths_raw(
+                shaped, speed=speed, point_delay_ms=point_delay_ms,
+                stroke_delay_ms=stroke_delay_ms, chunk_size=chunk_size,
+                progress=progress, should_continue=should_continue,
+            )
+
+        if method == "injector":
+            try:
+                return self._draw_paths_injector(
+                    shaped, speed=speed, human=human, seed=seed, pacing=pacing,
+                    progress=progress, should_continue=should_continue,
+                )
+            except InjectorUnavailableError:
+                # Nothing about a device guarantees app_process will run a jar
+                # for us. The slow path always works, so say so and take it.
+                self.injector_error = True
+
+        return self._draw_paths_input(
+            shaped, speed=speed, human=human, seed=seed, stroke_delay_ms=stroke_delay_ms,
+            progress=progress, should_continue=should_continue,
+        )
+
+    def _draw_paths_injector(
+        self,
+        paths,
+        *,
+        speed: float = 1.0,
+        human: float = 0.0,
+        seed: int | None = None,
+        pacing: Pacing | None = None,
+        progress=None,
+        should_continue=None,
+    ) -> int:
+        """Draw through the on-device injector, one process for the whole job.
+
+        This is the path where timing is real. Points are streamed to a process
+        that is already running, so the wait between them is whatever we ask for
+        rather than however long it takes to start another one.
         """
         width, height = self.screen_size
+        rng = random.Random(seed)
+
+        if pacing is None:
+            pacing = Pacing() if human else Pacing.instant()
+        if speed and speed != 1.0 and pacing.speed < 1e8:
+            pacing = replace(pacing, speed=pacing.speed * speed,
+                             travel_speed=pacing.travel_speed * speed)
+
+        def clamp(point):
+            return (max(0.0, min(width - 1.0, float(point[0]))),
+                    max(0.0, min(height - 1.0, float(point[1]))))
+
+        sent = 0
+        pen = None
+        with TouchInjector(self) as injector:
+            for index, path in enumerate(paths, start=1):
+                if should_continue is not None and not should_continue():
+                    break
+                if len(path) < 2:
+                    continue
+
+                points = [clamp(point) for point in path]
+                if pen is not None and pacing.lift_ms:
+                    # The hand has to get there. Longer gaps take longer.
+                    travel = math.dist(pen, points[0]) / max(pacing.travel_speed, 1.0) * 1000.0
+                    injector.pause(pacing.lift_ms + travel)
+
+                injector.stroke(points, pacing, rng)
+                pen = points[-1]
+                sent += 1
+
+                if progress is not None and index % 8 == 0:
+                    progress(index, len(paths))
+
+            injector.sync()
+
+        if progress is not None:
+            progress(len(paths), len(paths))
+        return sent
+
+    def _draw_paths_raw(
+        self,
+        paths,
+        *,
+        speed: float = 1.0,
+        point_delay_ms: int = 0,
+        stroke_delay_ms: int = 20,
+        chunk_size: int = 4000,
+        progress=None,
+        should_continue=None,
+    ) -> int:
+        """Draw by writing kernel input events, batched into pushed scripts."""
+        width, height = self.screen_size
         device = self.touch_device
+        scale = 1.0 / max(speed, 0.01)
         lines: list[str] = []
         sent = 0
 
@@ -206,9 +380,9 @@ class Device:
             for etype, code, value in events:
                 lines.append(f"sendevent {device.path} {etype} {code} {value}")
                 if point_delay_ms and etype == 0:
-                    lines.append(f"sleep {point_delay_ms / 1000:.3f}")
+                    lines.append(f"sleep {point_delay_ms * scale / 1000:.3f}")
             if stroke_delay_ms:
-                lines.append(f"sleep {stroke_delay_ms / 1000:.3f}")
+                lines.append(f"sleep {stroke_delay_ms * scale / 1000:.3f}")
             sent += 1
 
             if len(lines) >= chunk_size:
@@ -222,6 +396,91 @@ class Device:
         if progress is not None:
             progress(len(paths), len(paths))
         return sent
+
+    def _draw_paths_input(
+        self,
+        paths,
+        *,
+        speed: float = 1.0,
+        human: float = 0.0,
+        seed: int | None = None,
+        stroke_delay_ms: int = 20,
+        strokes_per_script: int = 12,
+        progress=None,
+        should_continue=None,
+    ) -> int:
+        """Draw through ``input motionevent``, for devices that refuse raw events.
+
+        Each ``input`` invocation starts a process on the device and costs
+        roughly a tenth of a second, so the commands are batched into pushed
+        scripts exactly as the raw path batches its events. Separate invocations
+        still join into one gesture - the DOWN, the MOVEs and the UP arrive as
+        one continuous stroke - which is what makes a polyline possible here at
+        all, rather than a row of disconnected segments.
+        """
+        width, height = self.screen_size
+        rng = random.Random(seed)
+        scale = 1.0 / max(speed, 0.01)
+        lines: list[str] = []
+        sent = 0
+        pending = 0
+
+        def clamp(value: float, limit: int) -> int:
+            return max(0, min(limit - 1, int(round(value))))
+
+        for index, path in enumerate(paths, start=1):
+            if should_continue is not None and not should_continue():
+                break
+            if len(path) < 2:
+                continue
+
+            points = [(clamp(x, width), clamp(y, height)) for x, y in path]
+            lines.append(f"input motionevent DOWN {points[0][0]} {points[0][1]}")
+            for x, y in points[1:]:
+                lines.append(f"input motionevent MOVE {x} {y}")
+            lines.append(f"input motionevent UP {points[-1][0]} {points[-1][1]}")
+
+            pause = stroke_delay_ms * scale / 1000
+            if human:
+                pause += rng.uniform(0, 0.12 * human)
+            if pause > 0.001:
+                lines.append(f"sleep {pause:.3f}")
+
+            sent += 1
+            pending += 1
+            if pending >= strokes_per_script:
+                self.run_script(lines)
+                lines = []
+                pending = 0
+                if progress is not None:
+                    progress(index, len(paths))
+
+        if lines:
+            self.run_script(lines)
+        if progress is not None:
+            progress(len(paths), len(paths))
+        return sent
+
+    def estimate_duration(self, paths, *, method: str = "auto", speed: float = 1.0,
+                          human: float = 0.0) -> float:
+        """Roughly how many seconds :meth:`draw_paths` will take.
+
+        Worth showing before starting: on the ``input`` path a detailed picture
+        is minutes of work, and a progress bar that appears to have frozen is
+        indistinguishable from one that has.
+        """
+        if method == "auto":
+            method = "raw" if self.supports_raw_touch else "injector"
+        points = sum(len(path) for path in paths if len(path) >= 2)
+        strokes = sum(1 for path in paths if len(path) >= 2)
+        if method == "input":
+            # Measured on a Pixel 8 Pro: one `input` process costs about 110 ms.
+            return (points + strokes * 2) * 0.11 / max(speed, 0.01)
+        if method == "injector":
+            # Two seconds to start the process, then whatever pacing asks for.
+            per_point = 0.012 if human else 0.0015
+            return 2.0 + (points * per_point + strokes * 0.12 * bool(human)) / max(speed, 0.01)
+        return (strokes * 0.02 + points * 0.0004) / max(speed, 0.01)
 
     # ----------------------------------------------------------------- streams
 

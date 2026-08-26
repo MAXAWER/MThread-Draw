@@ -10,7 +10,7 @@ from pathlib import Path
 
 from .errors import AdbCommandError, AdbNotFoundError
 
-__all__ = ["find_adb", "run_adb", "popen_adb", "no_window_kwargs"]
+__all__ = ["find_adb", "run_adb", "popen_adb", "no_window_kwargs", "bundled_candidates"]
 
 #: Locations checked after ``PATH``, so the tool works on a machine where the
 #: Android SDK was installed but never added to the shell environment.
@@ -32,6 +32,39 @@ _FALLBACKS = {
         "/snap/bin/adb",
     ],
 }
+
+
+def bundled_candidates() -> list[str]:
+    """Paths where a packaged build keeps its own copy of ``adb``.
+
+    The installers ship platform-tools inside the application so that nobody has
+    to install the Android SDK to draw on their phone. PyInstaller unpacks
+    bundled data to ``sys._MEIPASS``; a one-directory build and a macOS ``.app``
+    also keep it beside the executable, the latter under ``Contents/Resources``.
+
+    In a plain source checkout none of this exists and the list comes back
+    empty, which is exactly what should happen - a developer's own ``adb``
+    stays in charge.
+    """
+    if not getattr(sys, "frozen", False):
+        return []
+
+    name = "adb.exe" if sys.platform.startswith("win") else "adb"
+    roots: list[Path] = []
+
+    meipass = getattr(sys, "_MEIPASS", None)
+    if meipass:
+        roots.append(Path(meipass))
+
+    exe_dir = Path(sys.executable).resolve().parent
+    roots.append(exe_dir)
+    roots.append(exe_dir.parent / "Resources")
+
+    candidates = []
+    for root in roots:
+        candidates.append(str(root / "platform-tools" / name))
+        candidates.append(str(root / name))
+    return candidates
 
 
 def _platform_key() -> str:
@@ -57,9 +90,14 @@ def no_window_kwargs() -> dict:
 def find_adb(explicit: str | None = None) -> str:
     """Return a usable path to ``adb``.
 
-    Resolution order: explicit argument, ``ADB_PATH`` environment variable,
-    ``PATH``, a bundled binary next to the current working directory, then the
-    default SDK location for the running platform.
+    Resolution order: explicit argument, ``ADB_PATH`` environment variable, the
+    copy shipped inside a packaged build, ``PATH``, a ``platform-tools``
+    directory or a bare binary beside the working directory, then the default
+    SDK location for the running platform.
+
+    The bundled copy outranks ``PATH`` on purpose: an installed AutoDraw should
+    behave the same on every machine, rather than inheriting whichever adb
+    happens to be lying around.
 
     Raises:
         AdbNotFoundError: if no candidate exists.
@@ -71,11 +109,16 @@ def find_adb(explicit: str | None = None) -> str:
     if env:
         candidates.append(env)
 
+    candidates.extend(bundled_candidates())
+
     on_path = shutil.which("adb")
     if on_path:
         candidates.append(on_path)
 
+    # A source checkout that ran tools/fetch_platform_tools.py keeps adb here,
+    # so running from the repository needs no system-wide install either.
     for local in ("adb", "adb.exe"):
+        candidates.append(str(Path.cwd() / "platform-tools" / local))
         candidates.append(str(Path.cwd() / local))
 
     for raw in _FALLBACKS[_platform_key()]:

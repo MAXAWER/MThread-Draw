@@ -4,10 +4,11 @@ import unittest
 import unittest.mock
 
 from adbtouch.device import Device, DeviceInfo, REMOTE_TMP
+from adbtouch.injector import InjectorUnavailableError
 from adbtouch.touch import ABS_MT_POSITION_X, ABS_MT_TRACKING_ID, TouchDevice
 
 
-def make_device(screen=(1080, 2400), touch=None):
+def make_device(screen=(1080, 2400), touch=None, raw=True):
     """A Device with the ADB layer stubbed out, so batching logic can be tested."""
     device = Device.__new__(Device)
     device.adb_path = "/nonexistent/adb"
@@ -22,6 +23,8 @@ def make_device(screen=(1080, 2400), touch=None):
         has_slot=True,
         has_btn_touch=True,
     )
+    device._supports_raw = raw
+    device.injector_error = False
     device.scripts = []
     device.run_script = lambda lines, **kwargs: device.scripts.append(list(lines))
     return device
@@ -158,5 +161,95 @@ class RunScriptTests(unittest.TestCase):
         self.assertFalse(os.path.exists(local))
 
 
-if __name__ == "__main__":
-    unittest.main()
+
+class FallbackDrawingTests(unittest.TestCase):
+    """Devices that refuse raw events - every recent Pixel - still have to draw.
+
+    SELinux denies the shell domain write access to /dev/input there, so
+    sendevent fails per line while the script exits cleanly. The framework's own
+    `input motionevent` injection works, and separate invocations join into one
+    gesture, which is what lets a polyline through.
+    """
+
+    def test_input_path_speaks_motionevent(self):
+        device = make_device(raw=False)
+        device.draw_paths([[(10, 10), (20, 20), (30, 10)]], method="input")
+        body = "\n".join(device.scripts[0])
+        self.assertIn("input motionevent DOWN 10 10", body)
+        self.assertIn("input motionevent MOVE 20 20", body)
+        self.assertIn("input motionevent UP 30 10", body)
+        self.assertNotIn("sendevent", body)
+
+    def test_auto_uses_raw_when_it_is_allowed(self):
+        device = make_device(raw=True)
+        device.draw_paths([[(10, 10), (20, 20)]])
+        self.assertIn("sendevent", "\n".join(device.scripts[0]))
+
+    def test_one_down_and_one_up_per_stroke(self):
+        device = make_device(raw=False)
+        device.draw_paths([[(1, 1), (2, 2)], [(3, 3), (4, 4)]], method="input")
+        body = "\n".join(line for script in device.scripts for line in script)
+        self.assertEqual(body.count("motionevent DOWN"), 2)
+        self.assertEqual(body.count("motionevent UP"), 2)
+
+    def test_coordinates_stay_on_the_screen(self):
+        device = make_device(screen=(1080, 2400), raw=False)
+        device.draw_paths([[(-50, -50), (5000, 9000)]], method="input")
+        body = "\n".join(device.scripts[0])
+        self.assertIn("DOWN 0 0", body)
+        self.assertIn("UP 1079 2399", body)
+
+    def test_unknown_method_is_rejected(self):
+        with self.assertRaises(ValueError):
+            make_device().draw_paths([[(1, 1), (2, 2)]], method="telepathy")
+
+    def test_estimate_warns_that_the_input_path_is_slow(self):
+        device = make_device(raw=False)
+        paths = [[(i, i) for i in range(50)] for _ in range(10)]
+        slow = device.estimate_duration(paths, method="input")
+        fast = device.estimate_duration(paths, method="raw")
+        self.assertGreater(slow, fast * 10)
+        self.assertAlmostEqual(device.estimate_duration(paths, method="input", speed=2),
+                               slow / 2, places=3)
+
+    def test_auto_prefers_the_injector_when_raw_is_refused(self):
+        device = make_device(raw=False)
+        started = []
+
+        class Stub:
+            def __init__(self, owner, jar=None):
+                started.append(owner)
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                return None
+
+            def stroke(self, points, pacing=None, rng=None):
+                started.append(("stroke", len(points)))
+
+            def pause(self, millis):
+                pass
+
+            def sync(self, timeout=600.0):
+                pass
+
+        with unittest.mock.patch("adbtouch.device.TouchInjector", Stub):
+            device.draw_paths([[(1, 1), (2, 2)]])
+        self.assertEqual(started[0], device)
+        self.assertEqual(device.scripts, [])
+
+    def test_a_refusing_injector_drops_through_to_input(self):
+        """Nothing guarantees app_process will run a jar for us. The slow path
+        always works, so an unavailable injector must not be fatal."""
+        device = make_device(raw=False)
+
+        def refuse(*args, **kwargs):
+            raise InjectorUnavailableError("no app_process here")
+
+        with unittest.mock.patch("adbtouch.device.TouchInjector", refuse):
+            device.draw_paths([[(1, 1), (2, 2)]])
+        self.assertIn("input motionevent", chr(10).join(device.scripts[0]))
+        self.assertTrue(device.injector_error)
+

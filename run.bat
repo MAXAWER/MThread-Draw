@@ -29,10 +29,19 @@ if not exist "%PY%" (
     )
 )
 
+rem adb, if this machine has none of its own. Downloaded once, from Google.
+where adb >nul 2>&1
+if errorlevel 1 (
+    if not exist "platform-toolsdb.exe" (
+        echo Fetching adb ...
+        "%PY%" toolsetch_platform_tools.py
+    )
+)
+
 "%PY%" -m autodraw
 if errorlevel 1 (
     echo.
-    echo AutoDraw exited with an error. Check that adb is installed and that
-    echo USB debugging is enabled on the phone.
+    echo AutoDraw exited with an error. Check that USB debugging is enabled
+    echo on the phone and that the cable carries data.
     pause
 )

@@ -14,34 +14,38 @@
 </p>
 
 <p align="center">
-  <img src="docs/demo.gif" width="300" alt="An image being traced into touch strokes and drawn on a phone screen">
+  <img src="docs/demo.gif" width="900" alt="A colour landscape being traced into touch strokes and drawn on a phone screen">
 </p>
 
 <p align="center">
-  <sub>38 strokes, 950 touch points — the exact path list <code>adbtouch</code> sends to the device, animated in the order it draws them.<br>
+  <sub>An ordinary colour PNG in, 215 strokes and 1,542 touch points out — the exact path list <code>adbtouch</code> sends to the device, in the order it draws them.<br>
   Rendered from a real run of the vectoriser by <a href="tools/make_demo.py"><code>tools/make_demo.py</code></a>; playback speed here is arbitrary.</sub>
 </p>
 
 ---
 
-## In three steps
+## Get it
 
-```bash
-# 1. Install (Python 3.9+, plus `adb` on your PATH)
-git clone https://github.com/MAXAWER/AutoDraw-Sim.git
-cd AutoDraw-Sim
-pip install -e ".[gui]"
+| | |
+|---|---|
+| **Windows** | [**Download the installer**](https://github.com/MAXAWER/AutoDraw-Sim/releases/latest) — `AutoDraw-x.y.z-x64.msi`. Installs like any other program, Start Menu entry and uninstaller included. |
+| **macOS** | [**Download the app**](https://github.com/MAXAWER/AutoDraw-Sim/releases/latest) — `.dmg` for Apple Silicon or Intel. Drag it to Applications. |
+| **Linux** | Run from source; three commands, [below](#from-source). |
 
-# 2. Plug the phone in with USB debugging on - or connect over Wi-Fi
-adb connect 192.168.1.42:5555     # optional, wireless
-adbtouch devices                  # should list your phone
+**Nothing else to install.** Python, OpenCV and **adb** all travel inside the
+application — no Android SDK, no platform-tools download, no `PATH` to edit.
 
-# 3. Start the app
-autodraw
-```
+The builds are not code-signed, because certificates cost money this project
+does not take. Windows SmartScreen says "unknown publisher" once — *More info* →
+*Run anyway*. macOS wants a right-click → **Open** on the first launch.
 
-In the app: **Connect device** → **Capture screen** → **Load image** → drag it over
-the phone preview → **START DRAWING**.
+## Then, in three steps
+
+1. **Turn on USB debugging** on the phone: Settings → About phone → tap *Build
+   number* seven times → Developer options → *USB debugging*.
+2. **Plug it in.** Or go wireless: `adb connect 192.168.1.42:5555`.
+3. **Open AutoDraw** → *Connect device* → *Capture screen* → *Load image* → drag
+   it over the phone preview → **START DRAWING**.
 
 No GUI, no clicking:
 
@@ -58,12 +62,16 @@ Device().draw_paths([[(100, 200), (400, 200), (400, 600)]])
   <img src="docs/pipeline.png" width="900" alt="Source image, detected edges, and the resulting stroke paths">
 </p>
 
-Feed it an ordinary picture. Edges are detected with Canny, contours are traced,
-retraced double lines are collapsed, and what is left is a list of polylines.
+Feed it an ordinary picture — colour, no preparation. Edges are detected with
+Canny, contours are traced, retraced double lines are collapsed, and what is left
+is a list of polylines. The scene above is `examples/castle.png`; nothing about it
+was drawn as line art first.
 
-Line art works best. A photo gives you its edges, which is usually not what you
-wanted — the *Edge sensitivity* and *Detail* sliders are there to tune that, and
-an optional background remover (`rembg`) helps with portraits and product shots.
+Colour is what gets lost: a finger draws one black line, so the output is always
+a line drawing. Illustrations and line art come out closest to the original,
+photographs come out as their edges — the *Edge sensitivity* and *Detail* sliders
+decide how much detail survives, and an optional background remover (`rembg`)
+helps with portraits and product shots.
 
 ---
 
@@ -125,23 +133,39 @@ adbtouch play login.json --speed 2 --repeat 5
 Useful for regression passes, for reproducing a bug reliably, or for any
 repetitive tapping you would rather not do by hand.
 
-## Install variants
+<a name="from-source"></a>
 
-You need [Android platform-tools](https://developer.android.com/tools/releases/platform-tools)
-(`adb`) on your `PATH`, and USB debugging enabled on the phone:
-Settings → About phone → tap *Build number* seven times → Developer options →
-*USB debugging*.
+## From source
+
+[`run.bat`](run.bat) on Windows and [`run.sh`](run.sh) elsewhere do the whole
+thing: virtual environment, dependencies, and `adb` if the machine has none.
+Otherwise, by hand:
 
 ```bash
+git clone https://github.com/MAXAWER/AutoDraw-Sim.git
+cd AutoDraw-Sim
+
 pip install -e .            # library only - no dependencies at all
 pip install -e ".[draw]"    # + image vectorisation (OpenCV, NumPy, Pillow)
 pip install -e ".[gui]"     # + the desktop app
 pip install -e ".[bg]"      # + rembg background removal
 ```
 
-If `adb` is installed somewhere unusual, point `ADB_PATH` at it. On Windows you
-can also just run [`run.bat`](run.bat), which creates a virtual environment and
-starts the app for you; on macOS and Linux, [`run.sh`](run.sh).
+`adb` is found in this order: `ADB_PATH`, the copy inside a packaged build, your
+`PATH`, a `platform-tools` directory beside the working directory, then the usual
+Android SDK locations. If you have none of those:
+
+```bash
+python tools/fetch_platform_tools.py     # ~7 MB, straight from Google
+```
+
+To build the packaged application and its installer yourself:
+
+```bash
+pip install pyinstaller
+python tools/build_app.py --msi        # Windows, needs `dotnet tool install --global wix --version 5.0.2`
+python tools/build_app.py --dmg        # macOS
+```
 
 ## Command line
 
@@ -183,6 +207,22 @@ space, and on many phones it is *not* the display resolution — a 1080-pixel-wi
 screen commonly sits on a 4096-step digitizer. Sending display pixels straight to
 `sendevent` puts the touch in the wrong place. `adbtouch` reads the real axis
 ranges from `getevent -pl` and rescales. Run `adbtouch info` to see yours.
+
+**Three ways in, picked automatically.** Writing kernel events is fastest, but a
+recent Android refuses it: SELinux denies the shell domain write access to
+`/dev/input` however the file permissions read, so `sendevent` fails per line
+while the script exits cleanly. Where that happens, `adbtouch` streams points to
+a small injector it runs on the device instead - one process for a whole
+drawing, with the wait between points under our control. Failing even that, it
+shells out to `input` once per point, which needs nothing installed and costs
+about 110 ms each. `adbtouch info` says which path your device gets.
+
+**Drawing like a hand.** Timing is what gives a machine away, and the injector is
+what makes timing ours to choose. `adbtouch.hand` rounds corners, varies pen
+speed along a stroke, adds a slow tremor, overshoots stroke ends and reorders
+strokes the way a person would; `Pacing` decides how long each point takes. Set
+`human=0` and it draws as fast as the receiving app can sample - about 6 ms a
+point, since anything faster arrives between frames and is never seen.
 
 **Retrace removal.** `findContours` walks the *boundary* of a region, and Canny
 turns one pen stroke into two parallel edges — so the naive path traces up one
@@ -260,36 +300,64 @@ MIT — see [LICENSE](LICENSE).
 - **`AutoDraw`** — десктопное приложение поверх неё, для тех, кто предпочитает
   кнопки коду.
 
-## Три шага
+## Установка
+
+| | |
+|---|---|
+| **Windows** | [**Скачать установщик**](https://github.com/MAXAWER/AutoDraw-Sim/releases/latest) — `AutoDraw-x.y.z-x64.msi`. Ставится как обычная программа, с ярлыком в меню «Пуск» и деинсталлятором. |
+| **macOS** | [**Скачать приложение**](https://github.com/MAXAWER/AutoDraw-Sim/releases/latest) — `.dmg` для Apple Silicon или Intel, перетащить в Applications. |
+| **Linux** | Из исходников, три команды — [ниже](#из-исходников). |
+
+**Больше ничего ставить не нужно.** Python, OpenCV и **adb** лежат внутри самого
+приложения: ни Android SDK, ни platform-tools скачивать не придётся, `PATH`
+трогать тоже.
+
+Сборки не подписаны — сертификаты стоят денег, которых у проекта нет. Windows
+один раз скажет «неизвестный издатель»: *Подробнее* → *Выполнить в любом случае*.
+На macOS первый запуск — правой кнопкой → **Открыть**.
+
+## Дальше три шага
+
+1. **Включить отладку по USB**: Настройки → О телефоне → семь раз по «Номер
+   сборки» → Для разработчиков → Отладка по USB.
+2. **Подключить телефон.** Или по Wi-Fi: `adb connect 192.168.1.42:5555`.
+3. **Открыть AutoDraw** → *Connect device* → *Capture screen* → *Load image* →
+   перетащить картинку на превью экрана → **START DRAWING**.
+
+<a name="из-исходников"></a>
+
+### Из исходников
 
 ```bash
-# 1. Установка (нужен Python 3.9+ и `adb` в PATH)
 git clone https://github.com/MAXAWER/AutoDraw-Sim.git
 cd AutoDraw-Sim
 pip install -e ".[gui]"
-
-# 2. Подключить телефон с включённой отладкой по USB - или по Wi-Fi
-adb connect 192.168.1.42:5555     # по желанию, беспроводное подключение
-adbtouch devices                  # телефон должен появиться в списке
-
-# 3. Запустить приложение
 autodraw
 ```
 
-В приложении: **Connect device** → **Capture screen** → **Load image** →
-перетащить картинку на превью экрана → **START DRAWING**.
+Проще запустить [`run.bat`](run.bat) на Windows или [`run.sh`](run.sh) на macOS и
+Linux — они сами создадут виртуальное окружение, поставят зависимости и скачают
+`adb`, если своего на машине нет.
 
-На Windows можно вместо этого запустить [`run.bat`](run.bat) — он сам создаст
-виртуальное окружение и откроет приложение. На macOS и Linux — [`run.sh`](run.sh).
+`adb` ищется по порядку: `ADB_PATH`, копия внутри собранного приложения, ваш
+`PATH`, папка `platform-tools` рядом с рабочим каталогом, затем обычные пути
+Android SDK. Если ничего из этого нет:
+
+```bash
+python tools/fetch_platform_tools.py     # ~7 МБ, прямо от Google
+```
 
 ## Как картинка превращается в касания
 
-Подаёте обычное изображение. Границы находятся детектором Кэнни, контуры
-трассируются, двойные обводки схлопываются — на выходе список ломаных линий.
+Подаёте обычное цветное изображение, ничего готовить заранее не нужно. Границы
+находятся детектором Кэнни, контуры трассируются, двойные обводки схлопываются —
+на выходе список ломаных линий. Пейзаж выше это `examples/castle.png`, он не был
+контурным рисунком.
 
-Лучше всего работает контурный рисунок. Из фотографии получатся её границы, что
-обычно не то, чего хотелось: ползунки *Edge sensitivity* и *Detail* как раз для
-настройки, а опциональное удаление фона (`rembg`) помогает с портретами и
+Теряется цвет: палец рисует одну чёрную линию, поэтому результат всегда штриховой.
+Ближе всего к оригиналу выходят иллюстрации и контурные рисунки, из фотографии
+получатся её границы. Ползунки *Edge sensitivity* и *Detail* решают, сколько
+деталей останется, а опциональное удаление фона (`rembg`) помогает с портретами и
 предметной съёмкой.
 
 ## С чем работает

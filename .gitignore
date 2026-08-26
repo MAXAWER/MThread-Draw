@@ -1,7 +1,9 @@
 # Build artifacts
 /dist/
 /build/
-*.spec
+# PyInstaller drops a generated spec beside whatever script it was given; the
+# one we maintain lives in packaging/ and must stay tracked.
+/*.spec
 
 # Python
 __pycache__/
@@ -22,6 +24,9 @@ __pycache__/
 screen_tmp.png
 *.log
 
+# Downloaded by tools/fetch_platform_tools.py
+/platform-tools/
+
 # Environment
 .env
 venv/
@@ -32,3 +37,6 @@ screen_tmp.png
 
 # Local virtualenvs
 .venv/
+
+# Superseded by adbtouch/injector.jar, which ships inside the package
+/injector/*.jar

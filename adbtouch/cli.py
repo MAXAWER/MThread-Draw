@@ -36,6 +36,15 @@ def _cmd_info(args) -> int:
     print(f"pressure    : {touch.pressure_range}")
     if touch.x_range and (touch.x_range[1] - touch.x_range[0] + 1) != width:
         print("note        : digitizer resolution differs from the display; coordinates are rescaled.")
+
+    if device.supports_raw_touch:
+        print("raw input   : yes - drawing uses kernel events, which is the fast path")
+    else:
+        print("raw input   : NO - this device refuses sendevent on /dev/input")
+        print("              Drawing falls back to Android's own input injection, which")
+        print("              works but costs about a tenth of a second per point.")
+        print("              Reading events is a separate permission: recording gestures")
+        print("              may still work here even though drawing raw events does not.")
     return 0
 
 

@@ -8,6 +8,8 @@ import cv2
 import numpy as np
 from PIL import Image
 
+from .paths import tidy
+
 __all__ = ["VectorizeSettings", "Vectorizer", "dedupe_retrace"]
 
 
@@ -59,6 +61,11 @@ class VectorizeSettings:
         low_threshold / high_threshold: Canny hysteresis bounds.
         epsilon: Douglas-Peucker tolerance; larger means fewer, coarser points.
         min_points: Contours shorter than this are discarded as speckle.
+        join_tolerance: Fragments whose ends are this close are joined into one
+            stroke. findContours returns pieces, not strokes, and every extra
+            piece costs a pen lift.
+        min_length: Strokes shorter than this many pixels are dropped, being
+            invisible in the result and not free to draw.
         remove_background: Use ``rembg`` if it is installed.
     """
 
@@ -67,6 +74,8 @@ class VectorizeSettings:
     high_threshold: int = 150
     epsilon: float = 1.0
     min_points: int = 5
+    join_tolerance: float = 6.0
+    min_length: float = 10.0
     remove_background: bool = False
 
     @classmethod
@@ -162,6 +171,9 @@ class Vectorizer:
             points = [(int(point[0][0]), int(point[0][1])) for point in approx]
             if len(points) >= 2:
                 self.paths.append(points)
+
+        self.paths = tidy(self.paths, join_tolerance=settings.join_tolerance,
+                          min_length=settings.min_length)
 
         preview = np.full((*self.edges.shape, 3), 255, dtype=np.uint8)
         for path in self.paths:

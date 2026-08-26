@@ -22,6 +22,8 @@ Typical use::
 
 from .adb import find_adb
 from .device import Device, DeviceInfo, list_devices
+from .hand import HandSettings, reorder_strokes, simulate
+from .injector import InjectorUnavailableError, Pacing, TouchInjector
 from .errors import (
     AdbCommandError,
     AdbNotFoundError,
@@ -57,6 +59,8 @@ def __dir__():
 __all__ = [
     "__version__",
     "Device", "DeviceInfo", "list_devices", "find_adb",
+    "HandSettings", "simulate", "reorder_strokes",
+    "TouchInjector", "Pacing", "InjectorUnavailableError",
     "Recorder", "Session", "InputEvent", "replay", "build_replay_script", "parse_getevent_line",
     "TouchDevice", "parse_getevent_pl", "pick_touchscreen", "build_stroke_events",
     "Vectorizer", "VectorizeSettings",

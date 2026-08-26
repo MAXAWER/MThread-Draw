@@ -54,3 +54,7 @@ autodraw = "autodraw.app:main"
 
 [tool.setuptools]
 packages = ["adbtouch", "autodraw"]
+
+[tool.setuptools.package-data]
+# The on-device injector, built by tools/build_injector.py.
+adbtouch = ["injector.jar"]
