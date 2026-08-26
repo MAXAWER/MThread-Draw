@@ -1,5 +1,8 @@
 [build-system]
-requires = ["setuptools>=68", "wheel"]
+# 77 is where PEP 639 landed, and the licence below is written as a PEP 639
+# expression. Older setuptools reads that line as the legacy field, which
+# wants a table rather than a string, and refuses the build.
+requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -15,9 +18,11 @@ keywords = [
     "mobile-automation", "testing", "qa", "getevent", "sendevent", "autoclicker",
     "drawing", "emulator", "gesture", "screen-recording",
 ]
+# No licence classifier here. The licence is stated once, above, as a PEP 639
+# expression, and setuptools 77 and later refuse a build that says it twice -
+# which is why every CI job started failing on a repository nobody had touched.
 classifiers = [
     "Development Status :: 4 - Beta",
-    "License :: OSI Approved :: GNU Affero General Public License v3",
     "Intended Audience :: Developers",
     "Intended Audience :: End Users/Desktop",
     "Operating System :: OS Independent",
