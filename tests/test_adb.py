@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from adbtouch.adb import find_adb, run_adb
+from adbtouch.adb import bundled_candidates, find_adb, run_adb
 from adbtouch.errors import AdbCommandError, AdbNotFoundError
 
 IS_WINDOWS = sys.platform.startswith("win")
@@ -98,6 +98,29 @@ class FindAdbTests(unittest.TestCase):
                  mock.patch.dict("adbtouch.adb._FALLBACKS", {"win32": [], "darwin": [], "linux": []}):
                 with self.assertRaises(AdbNotFoundError):
                     find_adb(str(plain))
+
+
+class BundledAdbTests(unittest.TestCase):
+    """The installers ship their own adb; a source checkout must not pretend to."""
+
+    def test_source_checkout_offers_nothing(self):
+        self.assertEqual(bundled_candidates(), [])
+
+    def test_frozen_build_looks_beside_itself(self):
+        with mock.patch.object(sys, "frozen", True, create=True), \
+             mock.patch.object(sys, "_MEIPASS", r"C:\app" if IS_WINDOWS else "/app", create=True):
+            found = bundled_candidates()
+        name = "adb.exe" if IS_WINDOWS else "adb"
+        self.assertTrue(any(c.endswith(os.path.join("platform-tools", name)) for c in found))
+
+    def test_bundled_copy_beats_whatever_is_on_path(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            bundled = make_fake_adb(Path(tmp))
+            elsewhere = make_fake_adb(Path(tempfile.mkdtemp()))
+            with mock.patch.dict(os.environ, {}, clear=True), \
+                 mock.patch("adbtouch.adb.bundled_candidates", return_value=[str(bundled)]), \
+                 mock.patch("adbtouch.adb.shutil.which", return_value=str(elsewhere)):
+                self.assertEqual(Path(find_adb()).resolve(), bundled.resolve())
 
 
 class RunAdbTests(unittest.TestCase):

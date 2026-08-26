@@ -12,11 +12,68 @@
    git push origin main --tags
    ```
 
-`.github/workflows/release.yml` takes it from there: it builds `AutoDraw.exe` on
-a Windows runner, builds the sdist and wheel, and attaches all three to a GitHub
-release with generated notes.
+`.github/workflows/release.yml` takes it from there:
 
-Tags must start with `v`. Anything else is ignored by the workflow.
+| Artifact | Built on |
+|---|---|
+| `AutoDraw-<version>-x64.msi`, and the same app as a `.zip` | windows-latest |
+| `AutoDraw-<version>-arm64.dmg` | macos-latest |
+| `AutoDraw-<version>-x64.dmg` | macos-13 |
+| sdist and wheel | ubuntu-latest |
+
+Tags must start with `v`. Anything else is ignored by the workflow. The same
+build jobs also run on any pull request that touches `packaging/` or the build
+scripts, without publishing - packaging breaks quietly, and only on the platform
+you are not developing on.
+
+## Building locally
+
+```bash
+pip install pyinstaller
+python tools/build_app.py --msi        # Windows
+python tools/build_app.py --dmg        # macOS
+python tools/build_app.py --archive    # a plain zip / tar.gz anywhere
+```
+
+Each build runs the packaged app's own self-test (`AutoDraw --selftest`) before
+it is considered finished: it imports the whole application and resolves and
+runs the bundled adb. An incomplete bundle fails the build instead of failing on
+a user's desktop - which is how `adbtouch.vectorize`, imported lazily through
+`__getattr__` and therefore invisible to PyInstaller, was once left out.
+
+### WiX
+
+The Windows installer needs WiX **5**:
+
+```bash
+dotnet tool install --global wix --version 5.0.2
+```
+
+Version 6 and later refuse to build until you accept the Open Source Maintenance
+Fee licence, which is not something a build script can do unattended.
+
+## The bundled adb
+
+The installers carry Google's `adb` inside them, fetched at build time by
+`tools/fetch_platform_tools.py`, so that installing AutoDraw installs
+everything. Two things worth knowing:
+
+- platform-tools is published under the Android Software Development Kit
+  licence, which restricts redistribution. Bundling it is a deliberate choice -
+  the same one scrcpy and similar tools make - and `NOTICE.txt` ships beside the
+  binary for that reason. To ship without it, build with `--no-adb`; the app
+  then falls back to whatever adb the machine has, exactly like a source
+  checkout.
+- The bundled copy outranks `PATH`, so an installed AutoDraw behaves the same on
+  every machine.
+
+## Code signing
+
+Nothing is signed. Windows SmartScreen will warn once, and macOS will refuse the
+first launch until the user right-clicks and chooses Open. Signing needs an
+Authenticode certificate (a few hundred a year) and, for macOS, an Apple
+Developer account plus notarisation; the release notes tell users which button
+to press instead.
 
 ## Publishing to PyPI
 

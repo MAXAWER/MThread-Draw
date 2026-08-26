@@ -4,8 +4,13 @@
 
 Packaging and presentation release; no behavioural changes to drawing or replay.
 
-- Tagged releases now build a standalone `AutoDraw.exe` and the Python
-  distribution automatically, and attach both to the GitHub release.
+- **Installers.** A Windows `.msi` that installs like any other program, and a
+  macOS `.dmg` for both Apple Silicon and Intel, built automatically from a tag.
+- **Self-contained.** The packaged builds carry their own `adb`: no Android SDK,
+  no platform-tools download, no `PATH` to edit. `find_adb` looks inside the
+  bundle first, so an installed AutoDraw behaves the same everywhere.
+- Packaged builds run a self-test before shipping, which imports the whole
+  application and runs the bundled adb.
 - Optional PyPI publishing through trusted publishing — see
   [docs/RELEASING.md](docs/RELEASING.md).
 - `run.bat` and `run.sh`: one-click launchers that create the virtual

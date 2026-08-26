@@ -24,24 +24,28 @@
 
 ---
 
-## In three steps
+## Get it
 
-```bash
-# 1. Install (Python 3.9+, plus `adb` on your PATH)
-git clone https://github.com/MAXAWER/AutoDraw-Sim.git
-cd AutoDraw-Sim
-pip install -e ".[gui]"
+| | |
+|---|---|
+| **Windows** | [**Download the installer**](https://github.com/MAXAWER/AutoDraw-Sim/releases/latest) — `AutoDraw-x.y.z-x64.msi`. Installs like any other program, Start Menu entry and uninstaller included. |
+| **macOS** | [**Download the app**](https://github.com/MAXAWER/AutoDraw-Sim/releases/latest) — `.dmg` for Apple Silicon or Intel. Drag it to Applications. |
+| **Linux** | Run from source; three commands, [below](#from-source). |
 
-# 2. Plug the phone in with USB debugging on - or connect over Wi-Fi
-adb connect 192.168.1.42:5555     # optional, wireless
-adbtouch devices                  # should list your phone
+**Nothing else to install.** Python, OpenCV and **adb** all travel inside the
+application — no Android SDK, no platform-tools download, no `PATH` to edit.
 
-# 3. Start the app
-autodraw
-```
+The builds are not code-signed, because certificates cost money this project
+does not take. Windows SmartScreen says "unknown publisher" once — *More info* →
+*Run anyway*. macOS wants a right-click → **Open** on the first launch.
 
-In the app: **Connect device** → **Capture screen** → **Load image** → drag it over
-the phone preview → **START DRAWING**.
+## Then, in three steps
+
+1. **Turn on USB debugging** on the phone: Settings → About phone → tap *Build
+   number* seven times → Developer options → *USB debugging*.
+2. **Plug it in.** Or go wireless: `adb connect 192.168.1.42:5555`.
+3. **Open AutoDraw** → *Connect device* → *Capture screen* → *Load image* → drag
+   it over the phone preview → **START DRAWING**.
 
 No GUI, no clicking:
 
@@ -129,14 +133,18 @@ adbtouch play login.json --speed 2 --repeat 5
 Useful for regression passes, for reproducing a bug reliably, or for any
 repetitive tapping you would rather not do by hand.
 
-## Install variants
+<a name="from-source"></a>
 
-You need [Android platform-tools](https://developer.android.com/tools/releases/platform-tools)
-(`adb`) on your `PATH`, and USB debugging enabled on the phone:
-Settings → About phone → tap *Build number* seven times → Developer options →
-*USB debugging*.
+## From source
+
+Running from source is the one case where you supply your own
+[platform-tools](https://developer.android.com/tools/releases/platform-tools)
+(`adb` on your `PATH`); the packaged builds carry their own.
 
 ```bash
+git clone https://github.com/MAXAWER/AutoDraw-Sim.git
+cd AutoDraw-Sim
+
 pip install -e .            # library only - no dependencies at all
 pip install -e ".[draw]"    # + image vectorisation (OpenCV, NumPy, Pillow)
 pip install -e ".[gui]"     # + the desktop app
@@ -146,6 +154,14 @@ pip install -e ".[bg]"      # + rembg background removal
 If `adb` is installed somewhere unusual, point `ADB_PATH` at it. On Windows you
 can also just run [`run.bat`](run.bat), which creates a virtual environment and
 starts the app for you; on macOS and Linux, [`run.sh`](run.sh).
+
+To build the packaged application and its installer yourself:
+
+```bash
+pip install pyinstaller
+python tools/build_app.py --msi        # Windows, needs `dotnet tool install --global wix --version 5.0.2`
+python tools/build_app.py --dmg        # macOS
+```
 
 ## Command line
 
@@ -264,27 +280,44 @@ MIT — see [LICENSE](LICENSE).
 - **`AutoDraw`** — десктопное приложение поверх неё, для тех, кто предпочитает
   кнопки коду.
 
-## Три шага
+## Установка
+
+| | |
+|---|---|
+| **Windows** | [**Скачать установщик**](https://github.com/MAXAWER/AutoDraw-Sim/releases/latest) — `AutoDraw-x.y.z-x64.msi`. Ставится как обычная программа, с ярлыком в меню «Пуск» и деинсталлятором. |
+| **macOS** | [**Скачать приложение**](https://github.com/MAXAWER/AutoDraw-Sim/releases/latest) — `.dmg` для Apple Silicon или Intel, перетащить в Applications. |
+| **Linux** | Из исходников, три команды — [ниже](#из-исходников). |
+
+**Больше ничего ставить не нужно.** Python, OpenCV и **adb** лежат внутри самого
+приложения: ни Android SDK, ни platform-tools скачивать не придётся, `PATH`
+трогать тоже.
+
+Сборки не подписаны — сертификаты стоят денег, которых у проекта нет. Windows
+один раз скажет «неизвестный издатель»: *Подробнее* → *Выполнить в любом случае*.
+На macOS первый запуск — правой кнопкой → **Открыть**.
+
+## Дальше три шага
+
+1. **Включить отладку по USB**: Настройки → О телефоне → семь раз по «Номер
+   сборки» → Для разработчиков → Отладка по USB.
+2. **Подключить телефон.** Или по Wi-Fi: `adb connect 192.168.1.42:5555`.
+3. **Открыть AutoDraw** → *Connect device* → *Capture screen* → *Load image* →
+   перетащить картинку на превью экрана → **START DRAWING**.
+
+<a name="из-исходников"></a>
+
+### Из исходников
 
 ```bash
-# 1. Установка (нужен Python 3.9+ и `adb` в PATH)
 git clone https://github.com/MAXAWER/AutoDraw-Sim.git
 cd AutoDraw-Sim
 pip install -e ".[gui]"
-
-# 2. Подключить телефон с включённой отладкой по USB - или по Wi-Fi
-adb connect 192.168.1.42:5555     # по желанию, беспроводное подключение
-adbtouch devices                  # телефон должен появиться в списке
-
-# 3. Запустить приложение
 autodraw
 ```
 
-В приложении: **Connect device** → **Capture screen** → **Load image** →
-перетащить картинку на превью экрана → **START DRAWING**.
-
-На Windows можно вместо этого запустить [`run.bat`](run.bat) — он сам создаст
-виртуальное окружение и откроет приложение. На macOS и Linux — [`run.sh`](run.sh).
+Здесь `adb` нужен свой — в `PATH` или в переменной `ADB_PATH`. На Windows можно
+запустить [`run.bat`](run.bat), он сам создаст виртуальное окружение; на macOS и
+Linux — [`run.sh`](run.sh).
 
 ## Как картинка превращается в касания
 

@@ -4,22 +4,43 @@ name: Release
 #
 #     git tag v1.1.0 && git push origin v1.1.0
 #
-# which builds a standalone Windows .exe, builds the sdist and wheel, and
-# attaches all three to a GitHub release. Publishing to PyPI is opt-in: set the
-# repository variable PUBLISH_TO_PYPI to "true" once trusted publishing is
-# configured at https://pypi.org/manage/account/publishing/ .
+# which builds a Windows .msi, macOS .dmg for both architectures, the sdist and
+# the wheel, and attaches them all to a GitHub release. Each packaged build runs
+# its own self-test first, so an incomplete bundle fails here rather than in
+# somebody's dialog box.
+#
+# The same jobs run on a pull request that touches the packaging, without
+# publishing anything - packaging breaks quietly and only on the platform you
+# are not using.
+#
+# PyPI publishing is opt-in: set the repository variable PUBLISH_TO_PYPI to
+# "true" once trusted publishing is configured at
+# https://pypi.org/manage/account/publishing/ .
 
 on:
   push:
     tags: ["v*"]
+  pull_request:
+    paths:
+      - "packaging/**"
+      - "tools/build_app.py"
+      - "tools/fetch_platform_tools.py"
+      - "tools/pyinstaller_entry.py"
+      - "tools/make_icon.py"
+      - ".github/workflows/release.yml"
   workflow_dispatch:
 
 permissions:
   contents: write
 
+env:
+  # WiX 6 and later require accepting a separate maintenance-fee licence; 5 is
+  # the last version that builds unattended.
+  WIX_VERSION: "5.0.2"
+
 jobs:
-  windows-exe:
-    name: Windows executable
+  windows:
+    name: Windows installer
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -28,24 +49,56 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install
+      - name: Install build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[gui]" pyinstaller
+          dotnet tool install --global wix --version ${{ env.WIX_VERSION }}
+
+      - name: Build app, installer and archive
+        run: python tools/build_app.py --msi --archive
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: |
+            dist/*.msi
+            dist/*.zip
+
+  macos:
+    name: macOS app (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-latest
+            arch: arm64
+          - runner: macos-13
+            arch: x86_64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build dependencies
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e ".[gui]" pyinstaller
 
-      - name: Build AutoDraw.exe
-        run: >
-          pyinstaller --onefile --windowed --name AutoDraw
-          --collect-all customtkinter
-          tools/pyinstaller_entry.py
+      - name: Build app and disk image
+        run: python tools/build_app.py --dmg
 
       - uses: actions/upload-artifact@v4
         with:
-          name: AutoDraw-windows
-          path: dist/AutoDraw.exe
+          name: macos-${{ matrix.arch }}
+          path: dist/*.dmg
 
   distribution:
-    name: Build distribution
+    name: Python distribution
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -67,26 +120,40 @@ jobs:
 
   release:
     name: Publish GitHub release
-    needs: [windows-exe, distribution]
+    needs: [windows, macos, distribution]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: AutoDraw-windows
           path: artifacts
-
-      - uses: actions/download-artifact@v4
-        with:
-          name: dist
-          path: artifacts
+          merge-multiple: true
 
       - uses: softprops/action-gh-release@v2
         with:
           files: artifacts/*
           generate_release_notes: true
-          draft: false
-          prerelease: false
+          body: |
+            ### Which file do I want?
+
+            | | |
+            |---|---|
+            | **Windows** | `AutoDraw-*-x64.msi` — installs like any other program, Start Menu entry included. The `.zip` is the same app with no installer. |
+            | **macOS** | `AutoDraw-*-arm64.dmg` for Apple Silicon, `AutoDraw-*-x64.dmg` for Intel. Drag it to Applications. |
+            | **Linux** | Run from source — see the [README](https://github.com/MAXAWER/AutoDraw-Sim#install-variants). |
+
+            Everything is included: Python, OpenCV and **adb** all travel inside
+            the application. There is nothing else to install and no Android SDK
+            to set up.
+
+            The builds are not code-signed, because signing certificates cost
+            money this project does not take. Windows SmartScreen will say
+            "unknown publisher" — *More info* → *Run anyway*. On macOS, the first
+            launch needs a right-click → **Open**, or:
+
+            ```
+            xattr -dr com.apple.quarantine /Applications/AutoDraw.app
+            ```
 
   pypi:
     name: Publish to PyPI
