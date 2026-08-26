@@ -9,6 +9,7 @@ import numpy as np
 from PIL import Image
 
 from .paths import simplify, tidy
+from .flowlines import coherent_lines, edge_tangent_flow
 from .trace import rank_strokes, thin, trace_skeleton, xdog
 
 __all__ = ["VectorizeSettings", "Vectorizer", "dedupe_retrace"]
@@ -58,11 +59,17 @@ class VectorizeSettings:
     """Knobs for :meth:`Vectorizer.process`.
 
     Attributes:
-        method: ``"xdog"`` finds lines the way a person would and traces each
-            one once; ``"canny"`` is the older outline-based path, kept because
-            it suits flat vector art where every region really is an outline.
-        sigma: XDoG scale, in pixels. The single most useful knob: larger
-            ignores texture and keeps structure.
+        method: ``"flow"`` builds the direction every line runs in and filters
+            along it, which is what makes the output look drawn rather than
+            detected. ``"xdog"`` is the same idea without the flow - faster,
+            noisier. ``"canny"`` is the original outline-based path, kept
+            because it suits flat vector art, where every region really is an
+            outline.
+        sigma: Filter scale across the line, in pixels. Larger ignores texture
+            and keeps structure.
+        coherence: How far along a line the response is reinforced, in pixels.
+            The knob that decides between long calm strokes and short busy
+            ones; only ``"flow"`` uses it.
         ink: Roughly what fraction of the picture becomes line, 0 to 1.
         stroke_limit: Keep only this many strokes, longest first. Readability is
             mostly about what gets left out.
@@ -78,11 +85,12 @@ class VectorizeSettings:
         remove_background: Use ``rembg`` if it is installed.
     """
 
-    method: str = "xdog"
-    sigma: float = 2.2
+    method: str = "flow"
+    sigma: float = 1.6
+    coherence: float = 6.0
     ink: float = 0.16
     stroke_limit: int | None = None
-    target_width: int | None = 1000
+    target_width: int | None = 700
     low_threshold: int = 50
     high_threshold: int = 150
     epsilon: float = 1.0
@@ -102,8 +110,9 @@ class VectorizeSettings:
         return cls(
             low_threshold=int(20 + (sensitivity - 1) * 10),
             high_threshold=int(60 + (sensitivity - 1) * 15),
-            ink=max(0.04, min(0.45, 0.05 + sensitivity * 0.028)),
-            sigma=max(0.8, 3.4 - detail * 0.22),
+            ink=max(0.03, min(0.35, 0.02 + sensitivity * 0.016)),
+            sigma=max(0.8, 2.6 - detail * 0.12),
+            coherence=max(2.0, 10.0 - detail * 0.5),
             epsilon=0.5 + (10 - detail) * 0.35,
             **kwargs,
         )
@@ -115,7 +124,15 @@ class Vectorizer:
     def __init__(self):
         self.original_image: np.ndarray | None = None
         self.edges: np.ndarray | None = None
+        #: Tangent field, cached against the greyscale it was built from: it is
+        #: most of what the flow method costs and none of it depends on the
+        #: settings, so moving a slider must not pay for it again.
+        self._flow: tuple | None = None
+        self._flow_key: tuple | None = None
         self.paths: list[list[tuple[int, int]]] = []
+
+    def _invalidate(self) -> None:
+        self._flow = self._flow_key = None
 
     def load_image(self, path: str) -> np.ndarray:
         """Read an image from disk into BGR form."""
@@ -123,6 +140,7 @@ class Vectorizer:
         if image is None:
             raise ValueError(f"Could not read an image from {path!r}")
         self.original_image = image
+        self._invalidate()
         return image
 
     def load_array(self, image: np.ndarray) -> np.ndarray:
@@ -179,8 +197,8 @@ class Vectorizer:
                 image, (settings.target_width, int(height * scale)), interpolation=cv2.INTER_AREA
             )
 
-        if settings.method == "xdog":
-            return self._process_xdog(image, settings)
+        if settings.method in ("flow", "xdog"):
+            return self._process_lines(image, settings)
 
         self.edges = self._detect_edges(image, settings.low_threshold, settings.high_threshold)
         contours, _ = cv2.findContours(self.edges, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
@@ -203,10 +221,19 @@ class Vectorizer:
             cv2.polylines(preview, [np.array(path, dtype=np.int32)], False, (0, 0, 0), 1)
         return Image.fromarray(preview), self.paths
 
-    def _process_xdog(self, image, settings):
+    def _process_lines(self, image, settings):
         """Lines first, then one stroke along each - not a loop around it."""
         gray = np.asarray(Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)))
-        mask = xdog(gray, sigma=settings.sigma, ink=settings.ink)
+        if settings.method == "flow":
+            key = (gray.shape, int(gray.sum()))
+            if self._flow_key != key:
+                self._flow = edge_tangent_flow(gray)
+                self._flow_key = key
+            mask = coherent_lines(gray, sigma_c=settings.sigma,
+                                  sigma_m=settings.coherence, ink=settings.ink,
+                                  flow=self._flow)
+        else:
+            mask = xdog(gray, sigma=settings.sigma, ink=settings.ink)
         skeleton = thin(mask)
         self.edges = (~skeleton * 255).astype(np.uint8)
 
