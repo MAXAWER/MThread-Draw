@@ -38,6 +38,11 @@ from .touch import TouchDevice, build_stroke_events, parse_getevent_pl, pick_tou
 
 __version__ = "1.1.0"
 
+#: Source-available, not open source: personal use is unrestricted, and
+#: commercial use, redistribution and reskinning need written permission.
+#: See TERMS.md and LICENSE in the repository.
+__license__ = "LicenseRef-AutoDraw-1.0"
+
 #: Image vectorisation is the only part that needs OpenCV, so it is imported on
 #: first use. That keeps ``pip install adbtouch`` dependency-free for the common
 #: case of recording and replaying gestures.

@@ -118,9 +118,16 @@ function down(event) {
 
 function move(event) {
   if (!drawing) return;
-  ctx.lineTo(event.clientX, event.clientY);
+  // One event can carry every sample taken since the last frame. Reading only
+  // event.clientX throws those away, which makes a fast stroke look like a
+  // straight line between two frames - and makes a working injector look
+  // broken.
+  const samples = event.getCoalescedEvents ? event.getCoalescedEvents() : [event];
+  for (const sample of (samples.length ? samples : [event])) {
+    ctx.lineTo(sample.clientX, sample.clientY);
+    points += 1;
+  }
   ctx.stroke();
-  points += 1;
   out.points.textContent = points;
   out.last.textContent = `${Math.round(event.clientX)},${Math.round(event.clientY)}`;
 }

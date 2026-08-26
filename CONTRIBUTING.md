@@ -50,3 +50,10 @@ bottom of the README are all fair game.
 If drawing lands in the wrong place on your phone, that is useful data. Open a
 Device report issue with the output of `adbtouch info` - it prints the digitizer
 ranges we need to see.
+
+## Licensing of contributions
+
+This project is source-available, not open source - see [TERMS.md](TERMS.md).
+By opening a pull request you grant the author a perpetual, worldwide,
+irrevocable, royalty-free licence to use, modify and relicense your
+contribution as part of the project. You keep the copyright in what you wrote.

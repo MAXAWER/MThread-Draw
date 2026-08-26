@@ -7,7 +7,7 @@
 
 <p align="center">
   <a href="https://github.com/MAXAWER/AutoDraw-Sim/actions/workflows/ci.yml"><img src="https://github.com/MAXAWER/AutoDraw-Sim/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/licence-source--available-important" alt="Licence: source-available"></a>
   <img src="https://img.shields.io/badge/python-3.9%2B-blue" alt="Python 3.9+">
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey" alt="Windows | macOS | Linux">
   <a href="https://github.com/MAXAWER/AutoDraw-Sim/stargazers"><img src="https://img.shields.io/github/stars/MAXAWER/AutoDraw-Sim?style=flat&label=stars" alt="Stars"></a>
@@ -21,6 +21,28 @@
   <sub>An ordinary colour PNG in, 215 strokes and 1,542 touch points out — the exact path list <code>adbtouch</code> sends to the device, in the order it draws them.<br>
   Rendered from a real run of the vectoriser by <a href="tools/make_demo.py"><code>tools/make_demo.py</code></a>; playback speed here is arbitrary.</sub>
 </p>
+
+---
+
+> ### ⚠️ Read this before you use or copy anything here
+>
+> **This project is source-available, not open source.** There is no MIT grant.
+>
+> | | |
+> |---|---|
+> | **Personal use** | Anything you like, free, no permission needed. |
+> | **Commercial use** | Only as a *secondary* part of a product, and only with written permission. |
+> | **Redistribution** | Not permitted without permission — **free distribution included**. |
+> | **Reskin and sell** | Only with written consent, on the author's terms. |
+> | **Exceptions** | Considered on request, including free ones. |
+>
+> Full terms in plain English and Russian: **[TERMS.md](TERMS.md)**. The binding
+> text is [LICENSE](LICENSE). To ask for permission or an exception, open an
+> issue titled *"Licence request"*.
+>
+> **Личное использование — свободно и бесплатно. Всё остальное, включая
+> бесплатное распространение и форки, — только с письменного разрешения.**
+> Полные условия: [TERMS.md](TERMS.md).
 
 ---
 
@@ -277,9 +299,11 @@ report can be handled.
 **If this saved you an afternoon, a ⭐ costs nothing and is how anyone else finds
 it.**
 
-## License
+## Licence
 
-MIT — see [LICENSE](LICENSE).
+Source-available, not open source. Personal use is unrestricted; commercial use,
+redistribution and reskinning need written permission. See **[TERMS.md](TERMS.md)**
+for the plain-language version and [LICENSE](LICENSE) for the binding text.
 
 ---
 

@@ -74,6 +74,11 @@ class Pacing:
             in pixels per second.
         jitter: Proportional randomness on every wait, so the rhythm is not
             metronomic.
+        batch: How many points to deliver per event, as history, instead of one
+            event each. 0 sends them one at a time, which every app understands.
+            Higher is faster and stops being universal: the extra samples only
+            arrive for apps that read them, and the input pipeline drops the
+            tail of an over-long batch.
     """
 
     speed: float = 1100.0
@@ -84,20 +89,20 @@ class Pacing:
     lift_ms: float = 90.0
     travel_speed: float = 2600.0
     jitter: float = 0.18
+    batch: int = 0
 
     @classmethod
     def instant(cls) -> "Pacing":
-        """As fast as anything on the other end can actually see.
+        """Immediate: the whole stroke inside one event, waiting for nothing.
 
-        Not zero. Whatever is receiving the touches samples them per frame -
-        a browser canvas, a drawing app, anything - so a stroke delivered in
-        two milliseconds arrives as a press and a release with nothing in
-        between, and the line never appears. Eight milliseconds is a frame at
-        120 Hz, which is as fast as the fastest phone screen can register a
-        moving finger.
+        Sending points one at a time cannot be instant, because the receiving
+        app samples input per frame and everything delivered between two frames
+        collapses into one position. A single event carrying the stroke as
+        history sidesteps that entirely - which is exactly how a 240 Hz
+        digitizer talks to an app drawing at 120.
         """
-        return cls(speed=1e9, ease=0.0, curvature_drag=0.0, min_step_ms=6.0,
-                   max_step_ms=6.0, lift_ms=10.0, travel_speed=1e9, jitter=0.0)
+        return cls(speed=1e9, ease=0.0, curvature_drag=0.0, min_step_ms=1.0,
+                   max_step_ms=1.0, lift_ms=2.0, travel_speed=1e9, jitter=0.0)
 
 
 def pace_stroke(points, pacing: Pacing, rng: random.Random) -> list[float]:
@@ -208,12 +213,24 @@ class TouchInjector:
         rng = rng or random.Random()
         delays = pace_stroke(points, pacing, rng)
 
-        lines = [f"D {points[0][0]:.1f} {points[0][1]:.1f}"]
-        for (x, y), delay in zip(points[1:], delays):
-            if delay > 0.05:
-                lines.append(f"S {delay:.2f}")
-            lines.append(f"M {x:.1f} {y:.1f}")
-        lines.append(f"U {points[-1][0]:.1f} {points[-1][1]:.1f}")
+        if pacing.batch > 1:
+            # Chunks, not the whole stroke: an event can carry its earlier
+            # samples, but the pipeline drops the tail of a very long batch and
+            # not every app reads history at all.
+            lines = [f"D {points[0][0]:.1f} {points[0][1]:.1f}"]
+            rest = points[1:]
+            for start in range(0, len(rest), pacing.batch):
+                chunk = rest[start:start + pacing.batch]
+                lines += [f"H {x:.1f} {y:.1f}" for x, y in chunk[:-1]]
+                lines.append(f"M {chunk[-1][0]:.1f} {chunk[-1][1]:.1f}")
+            lines.append(f"U {points[-1][0]:.1f} {points[-1][1]:.1f}")
+        else:
+            lines = [f"D {points[0][0]:.1f} {points[0][1]:.1f}"]
+            for (x, y), delay in zip(points[1:], delays):
+                if delay > 0.05:
+                    lines.append(f"S {delay:.2f}")
+                lines.append(f"M {x:.1f} {y:.1f}")
+            lines.append(f"U {points[-1][0]:.1f} {points[-1][1]:.1f}")
 
         with self._lock:
             self._write(lines)

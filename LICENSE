@@ -1,21 +1,105 @@
-MIT License
+AutoDraw Source-Available Licence, version 1.0
+Copyright (c) 2026 Maxim Averyanov. All rights reserved.
 
-Copyright (c) 2026 Maxim Averyanov
+READ THIS BEFORE USING, COPYING OR REDISTRIBUTING THIS SOFTWARE.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+This software is source-available, not open source. The source code is
+published so that it can be read, learned from and used privately. It is not
+placed in the public domain, and it does not carry an MIT, BSD, Apache or GPL
+grant. Anything the sections below do not permit requires written permission
+from the copyright holder.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+In this licence, "the Software" means this repository and everything in it
+except the third-party components listed in section 7. "You" means the person
+or organisation exercising the permissions below. "The Author" means Maxim
+Averyanov, the copyright holder.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+1. PERSONAL USE - FREELY PERMITTED
+
+   You may do anything you like with the Software for your own personal,
+   private, educational or research purposes. Run it, modify it, take it apart,
+   build on it, use its output however you wish. No permission is needed and no
+   payment is due.
+
+   Personal use means use by you, for yourself. It stops being personal use the
+   moment the Software, or anything built from it, is put in front of other
+   people, whether or not money changes hands.
+
+2. COMMERCIAL USE - BY WRITTEN PERMISSION ONLY
+
+   Commercial use is possible, and welcome, on two conditions:
+
+   a) The Software must be an ancillary component of your product, not the
+      product itself. It may support what you sell; it may not be what you
+      sell, nor the main thing your product does.
+
+   b) You must obtain written permission from the Author in advance, on terms
+      agreed with the Author. Ask - see section 6.
+
+   Using the Software inside a business without permission is not covered by
+   section 1, however small the business or the use.
+
+3. REDISTRIBUTION - NOT PERMITTED WITHOUT PERMISSION
+
+   You may not distribute the Software, in source or compiled form, modified or
+   unmodified, to anyone else. This applies to paid distribution and to free
+   distribution equally: publishing a copy, a fork, a repackaged build, a
+   mirror, an app-store listing or a bundled installer all require written
+   permission from the Author.
+
+   Restyling, rebranding or reskinning the Software and distributing the result
+   - free or paid - requires written permission from the Author, on terms
+   agreed with the Author.
+
+   Linking to the official repository is always permitted and always welcome.
+   Contributing changes back through a pull request is permitted and welcome;
+   see section 5.
+
+4. NO WARRANTY, NO LIABILITY
+
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+   AUTHOR BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+   ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+   WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+   The Software drives input on devices you connect to it. What you do with it,
+   and whether that is permitted by the rules of any service, game or platform
+   you point it at, is entirely your responsibility.
+
+5. CONTRIBUTIONS
+
+   By submitting a contribution to this repository, you grant the Author a
+   perpetual, worldwide, irrevocable, royalty-free licence to use, modify and
+   relicense your contribution as part of the Software. You keep the copyright
+   in what you wrote.
+
+6. PERMISSION, AND EXCEPTIONS
+
+   Permission for anything in sections 2 and 3 is granted case by case, in
+   writing, by the Author. Exceptions to any part of this licence are possible
+   and are considered on request - including free licences for cases the Author
+   finds worthwhile.
+
+   Ask by opening an issue titled "Licence request" at
+   https://github.com/MAXAWER/AutoDraw-Sim/issues, describing what you want to
+   do. A licence granted this way is valid only in writing and only for what it
+   describes.
+
+7. THIRD-PARTY COMPONENTS
+
+   The packaged builds include Google's Android platform-tools (adb), which is
+   distributed under its own terms; its NOTICE.txt travels with it. Python and
+   the libraries the Software depends on remain under their own licences. This
+   licence governs the Software itself, and nothing else.
+
+8. VERSIONS
+
+   The Author may publish later versions of this licence. Code you received
+   under this version stays under this version.
+
+Earlier releases of this project, up to and including the commits published
+before this file was changed, were made available under the MIT Licence. That
+grant stands for those versions; it does not extend to anything published
+afterwards.

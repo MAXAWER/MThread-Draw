@@ -27,11 +27,20 @@ import java.lang.reflect.Method;
  * then costs microseconds, and the timing between points becomes ours to
  * choose - which is the whole point, because the timing is what a hand is.
  *
+ * <p>H is what makes instant drawing possible. A MotionEvent can carry earlier
+ * samples inside it, which is how a real digitizer reports 240 Hz to an app
+ * that redraws at 120: one event, many positions. Queueing a whole stroke as
+ * history and delivering it in a single event means the receiving app can draw
+ * all of it in one frame - no waiting for the screen at all - as long as it
+ * reads the history, which any drawing app and any browser using
+ * getCoalescedEvents does.
+ *
  * <p>The protocol is one command per line, chosen to be trivial to generate:
  *
  * <pre>
  *   D &lt;x&gt; &lt;y&gt;   press down and start a stroke
- *   M &lt;x&gt; &lt;y&gt;   move
+ *   H &lt;x&gt; &lt;y&gt;   queue a point as history for the next move
+ *   M &lt;x&gt; &lt;y&gt;   move, carrying whatever H queued
  *   U &lt;x&gt; &lt;y&gt;   lift
  *   S &lt;ms&gt;      wait, in milliseconds; fractions allowed
  *   P           ping - replies OK, so the caller can wait for a batch to land
@@ -49,6 +58,9 @@ public final class Injector {
     /** Events sharing a millisecond get coalesced, so time is forced forward. */
     private static long lastEventTime;
 
+    /** Points queued by H, waiting to ride along inside the next move. */
+    private static final java.util.ArrayList<float[]> history = new java.util.ArrayList<>();
+
     private static void connect() throws Exception {
         // Android 14 moved getInstance to InputManagerGlobal and left the old
         // entry point behind. Try the new home first, then the old one.
@@ -65,10 +77,37 @@ public final class Injector {
         inject = legacy.getMethod("injectInputEvent", InputEvent.class, int.class);
     }
 
-    private static void send(int action, float x, float y, long downTime) throws Exception {
+    private static long nextTime() {
         long now = Math.max(SystemClock.uptimeMillis(), lastEventTime + 1);
         lastEventTime = now;
-        MotionEvent event = MotionEvent.obtain(
+        return now;
+    }
+
+    private static void send(int action, float x, float y, long downTime) throws Exception {
+        long now = nextTime();
+        MotionEvent event;
+        if (action == MotionEvent.ACTION_MOVE && !history.isEmpty()) {
+            // The queued points become the earlier samples of one event, in the
+            // order they were queued; the argument pair is the latest position.
+            float[] first = history.get(0);
+            event = MotionEvent.obtain(downTime, now, action, first[0], first[1],
+                    1.0f, 1.0f, 0, 1.0f, 1.0f, 0, 0);
+            event.setSource(InputDevice.SOURCE_TOUCHSCREEN);
+            for (int index = 1; index < history.size(); index++) {
+                float[] point = history.get(index);
+                event.addBatch(nextTime(), point[0], point[1], 1.0f, 1.0f, 0);
+            }
+            event.addBatch(nextTime(), x, y, 1.0f, 1.0f, 0);
+            history.clear();
+            try {
+                inject.invoke(manager, event, INJECT_ASYNC);
+            } finally {
+                event.recycle();
+            }
+            return;
+        }
+
+        event = MotionEvent.obtain(
                 downTime, now, action, x, y,
                 1.0f,   // pressure
                 1.0f,   // size
@@ -123,9 +162,14 @@ public final class Injector {
                 try {
                     switch (command) {
                         case 'D':
+                            history.clear();
                             downTime = Math.max(SystemClock.uptimeMillis(), lastEventTime + 1);
                             send(MotionEvent.ACTION_DOWN,
                                     Float.parseFloat(parts[1]), Float.parseFloat(parts[2]), downTime);
+                            break;
+                        case 'H':
+                            history.add(new float[]{
+                                    Float.parseFloat(parts[1]), Float.parseFloat(parts[2])});
                             break;
                         case 'M':
                             send(MotionEvent.ACTION_MOVE,
