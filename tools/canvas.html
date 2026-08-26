@@ -93,7 +93,12 @@ function resize() {
 function reset() {
   ctx.save();
   ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.clearRect(0, 0, paper.width, paper.height);
+  // Paint the paper rather than letting the CSS background show through. A
+  // browser with "dark mode for web pages" turned on - Samsung Internet does
+  // this by default - darkens the page behind a transparent canvas, and black
+  // ink on a black background looks exactly like touches that never arrived.
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, paper.width, paper.height);
   ctx.restore();
   grid();
   strokes = points = 0;

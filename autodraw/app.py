@@ -12,7 +12,7 @@ import tkinter as tk
 from tkinter import filedialog, messagebox
 from PIL import Image, ImageTk
 
-from adbtouch import Device, Recorder, Session, VectorizeSettings, Vectorizer, replay
+from adbtouch import Device, Recorder, Session, VectorizeSettings, Vectorizer, replay, simulate
 from adbtouch.errors import AdbTouchError
 
 from .geometry import CanvasView, place_paths
@@ -121,6 +121,20 @@ class App:
         self.chk_pointer = ctk.CTkCheckBox(side, text="Show touches while drawing")
         self.chk_pointer.pack(fill="x", pady=(0, 12))
 
+        self.lbl_speed_value = ctk.CTkLabel(side, text="Speed  1.0x", anchor="w")
+        self.lbl_speed_value.pack(fill="x")
+        self.slider_speed = ctk.CTkSlider(side, from_=-2, to=2, number_of_steps=16,
+                                          command=self._on_speed_setting)
+        self.slider_speed.set(0)
+        self.slider_speed.pack(fill="x", pady=(0, 10))
+
+        self.lbl_human_value = ctk.CTkLabel(side, text="Draw like a hand  off", anchor="w")
+        self.lbl_human_value.pack(fill="x")
+        self.slider_human = ctk.CTkSlider(side, from_=0, to=3, number_of_steps=12,
+                                          command=self._on_human_setting)
+        self.slider_human.set(0)
+        self.slider_human.pack(fill="x", pady=(0, 12))
+
         ctk.CTkLabel(side, text="Calibration offset X / Y (px)", anchor="w").pack(fill="x")
         offsets = ctk.CTkFrame(side, fg_color="transparent")
         offsets.pack(fill="x", pady=(2, 12))
@@ -130,7 +144,11 @@ class App:
         self.entry_offset_y.pack(side="left")
 
         self.lbl_paths = ctk.CTkLabel(side, text="No image loaded", anchor="w", text_color="gray70")
-        self.lbl_paths.pack(fill="x", pady=(0, 12))
+        self.lbl_paths.pack(fill="x", pady=(0, 2))
+
+        self.lbl_method = ctk.CTkLabel(side, text="", anchor="w", justify="left",
+                                       wraplength=250, text_color="gray60")
+        self.lbl_method.pack(fill="x", pady=(0, 12))
 
         self.btn_draw = ctk.CTkButton(side, text="START DRAWING", height=42, fg_color="#2e8b57", command=self.start_drawing)
         self.btn_draw.pack(fill="x", pady=(0, 6))
@@ -376,6 +394,63 @@ class App:
             remove_background=bool(self.chk_remove_bg.get()),
         )
 
+    @property
+    def draw_speed(self) -> float:
+        """The speed slider, as a multiplier. It is exponential: the useful
+        range runs from a quarter speed to four times, and a linear slider
+        spends most of its travel in places nobody wants."""
+        return float(2 ** self.slider_speed.get())
+
+    def _on_speed_setting(self, _value=None) -> None:
+        self.lbl_speed_value.configure(text=f"Speed  {self.draw_speed:.2f}x")
+        self._refresh_estimate()
+
+    def _on_human_setting(self, _value=None) -> None:
+        amount = float(self.slider_human.get())
+        text = "off" if amount <= 0 else f"{amount:.2f}"
+        self.lbl_human_value.configure(text=f"Draw like a hand  {text}")
+        self._refresh_estimate()
+
+    def _refresh_estimate(self) -> None:
+        """Say which injection path will be used, and how long it will take.
+
+        On a device that refuses raw touch events the drawing is minutes rather
+        than seconds, and a progress bar creeping along with no explanation is
+        indistinguishable from one that has hung.
+        """
+        paths = self.vectorizer.paths
+        if not paths:
+            self.lbl_method.configure(text="")
+            return
+        human = float(self.slider_human.get())
+        if human > 0:
+            # The simulation changes the point count - that is the velocity
+            # profile - so the estimate has to be made on what will be sent.
+            paths = simulate(paths, human, seed=0)
+        if self.device is None:
+            self.lbl_method.configure(text="Connect a device to estimate the time.")
+            return
+
+        try:
+            raw = self.device.supports_raw_touch
+            seconds = self.device.estimate_duration(
+                paths, method="raw" if raw else "input", speed=self.draw_speed)
+        except AdbTouchError as exc:
+            self.lbl_method.configure(text=str(exc))
+            return
+
+        minutes, secs = divmod(int(seconds + 0.5), 60)
+        span = f"{minutes} min {secs} s" if minutes else f"{secs} s"
+        if raw:
+            self.lbl_method.configure(
+                text=f"Raw touch events, about {span}.", text_color="gray60")
+        else:
+            self.lbl_method.configure(
+                text=(f"This device refuses raw touch events, so drawing goes through "
+                      f"Android's own input injection: about {span}. Lower Detail to "
+                      f"cut that down."),
+                text_color="#c9a227")
+
     def _on_setting_change(self, _value=None) -> None:
         if self.vectorizer.original_image is not None:
             self.refresh_preview()
@@ -403,6 +478,7 @@ class App:
             def apply():
                 self.preview_image = preview
                 self.lbl_paths.configure(text=f"{len(paths)} strokes, {points} points")
+                self._refresh_estimate()
                 if not self._placed:
                     self.center_image()
                 else:
@@ -425,6 +501,8 @@ class App:
         scale = self.image_scale
         offset = (self._int_entry(self.entry_offset_x), self._int_entry(self.entry_offset_y))
         show_touches = bool(self.chk_pointer.get())
+        speed = self.draw_speed
+        human = float(self.slider_human.get())
 
         def work():
             self.set_status("Building paths...", "yellow")
@@ -434,12 +512,24 @@ class App:
                 self.set_status("Nothing to draw at this position", "orange")
                 return
 
+            raw = self.device.supports_raw_touch
+            method = "raw" if raw else "input"
+            costed = simulate(placed, human, seed=0) if human > 0 else placed
+            seconds = self.device.estimate_duration(costed, method=method, speed=speed)
+            minutes, secs = divmod(int(seconds + 0.5), 60)
+            span = f"{minutes}m {secs}s" if minutes else f"{secs}s"
+            how = "raw events" if raw else "input injection (slow)"
+
             if show_touches:
                 self.device.set_pointer_location(True)
             try:
-                self.set_status(f"Drawing {len(placed)} strokes...", "yellow")
+                self.set_status(f"Drawing {len(placed)} strokes via {how}, about {span}...",
+                                "yellow")
                 self.device.draw_paths(
                     placed,
+                    method=method,
+                    speed=speed,
+                    human=human,
                     progress=lambda done, total: self.set_progress(done / max(total, 1)),
                     should_continue=self._should_continue,
                 )
