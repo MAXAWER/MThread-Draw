@@ -1,5 +1,25 @@
 # Changelog
 
+## Unreleased
+
+- **Drawing works on devices that refuse raw touch events** - every recent
+  Pixel, where SELinux denies the shell domain write access to `/dev/input`.
+  `Device.supports_raw_touch` probes for it and the drawing path is picked
+  accordingly, instead of reporting success and doing nothing.
+- **An on-device injector** (`adbtouch/injector.py`, built from `injector/`),
+  run once through `app_process` and fed points over stdin. One process for a
+  whole drawing rather than one per point, which is what makes realistic timing
+  possible at all. Measured on a Pixel 8 Pro: a 136-stroke, 1,679-point drawing
+  in about 19 seconds, against 3 minutes 40 through `input`.
+- **`adbtouch.hand`** simulates hand drawing: rounded corners, a velocity
+  profile, tremor, overshoot and a sensible stroke order.
+- **`adbtouch.paths`** joins the fragments `findContours` returns back into
+  strokes and drops specks - 215 strokes became 136 on the sample image, which
+  is both faster and cleaner.
+- `tools/test_canvas.py`: a drawing canvas served to the device over
+  `adb reverse`, with a calibration pattern, for checking any of this.
+- Speed and hand-drawing controls in the desktop app, with a time estimate.
+
 ## 1.1.0
 
 Packaging and presentation release; no behavioural changes to drawing or replay.

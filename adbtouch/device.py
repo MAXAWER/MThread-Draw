@@ -3,16 +3,18 @@
 from __future__ import annotations
 
 import os
+import math
 import random
 import re
 import tempfile
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Iterable, Sequence
 
 from .adb import find_adb, popen_adb, run_adb
 from .errors import DeviceNotConnectedError, TouchDeviceNotFoundError
 from .hand import HandSettings, simulate
+from .injector import InjectorUnavailableError, Pacing, TouchInjector
 from .touch import TouchDevice, build_stroke_events, parse_getevent_pl, pick_touchscreen
 
 __all__ = ["DeviceInfo", "Device", "list_devices"]
@@ -77,6 +79,8 @@ class Device:
         self._touch_device: TouchDevice | None = None
         self._screen_size: tuple[int, int] | None = None
         self._supports_raw: bool | None = None
+        #: Set when the injector refused to start and the slow path was used.
+        self.injector_error = False
 
     # ------------------------------------------------------------------ basics
 
@@ -224,6 +228,7 @@ class Device:
         human: float = 0.0,
         seed: int | None = None,
         hand_settings: HandSettings | None = None,
+        pacing: Pacing | None = None,
         point_delay_ms: int = 0,
         stroke_delay_ms: int = 20,
         chunk_size: int = 4000,
@@ -233,10 +238,14 @@ class Device:
         """Draw *paths* (display pixel coordinates) and return the strokes sent.
 
         Args:
-            method: ``"raw"`` writes kernel events and is hundreds of times
-                faster; ``"input"`` drives the framework's own injection and
-                works on devices that refuse the raw path; ``"auto"`` picks raw
-                when :attr:`supports_raw_touch` allows it.
+            method: ``"raw"`` writes kernel events directly. ``"injector"``
+                streams points to a small process running on the device, which
+                is the only path where the time between points is ours to
+                choose - and therefore the only one that can look like a hand.
+                ``"input"`` shells out to the ``input`` command once per point,
+                which needs nothing installed but costs about 110 ms each.
+                ``"auto"`` takes raw where it is allowed, the injector where it
+                is not, and ``input`` if even that fails.
             speed: Multiplier on the pacing. Above 1 draws faster, below 1
                 slower. It cannot make ``"input"`` quick - that path costs about
                 a tenth of a second per point whatever happens - but it does let
@@ -249,26 +258,100 @@ class Device:
                 and so the time the drawing takes.
             hand_settings: Full control over the simulation; see
                 :class:`adbtouch.hand.HandSettings`.
+            pacing: Timing for the injector path; see
+                :class:`adbtouch.injector.Pacing`. Defaults to hand speed when
+                *human* is set and to as-fast-as-possible when it is not.
             seed: Fixes the randomness, so a "human" drawing can be repeated.
             progress: Called with ``(done, total)`` as strokes are sent.
             should_continue: Polled once per stroke; return False to stop.
         """
-        if method == "auto":
-            method = "raw" if self.supports_raw_touch else "input"
-        if method not in ("raw", "input"):
+        if method not in ("auto", "raw", "input", "injector"):
             raise ValueError(f"unknown drawing method {method!r}")
+        if method == "auto":
+            method = "raw" if self.supports_raw_touch else "injector"
 
         shaped = simulate(paths, human, seed, hand_settings) if human else paths
+
         if method == "raw":
             return self._draw_paths_raw(
                 shaped, speed=speed, point_delay_ms=point_delay_ms,
                 stroke_delay_ms=stroke_delay_ms, chunk_size=chunk_size,
                 progress=progress, should_continue=should_continue,
             )
+
+        if method == "injector":
+            try:
+                return self._draw_paths_injector(
+                    shaped, speed=speed, human=human, seed=seed, pacing=pacing,
+                    progress=progress, should_continue=should_continue,
+                )
+            except InjectorUnavailableError:
+                # Nothing about a device guarantees app_process will run a jar
+                # for us. The slow path always works, so say so and take it.
+                self.injector_error = True
+
         return self._draw_paths_input(
             shaped, speed=speed, human=human, seed=seed, stroke_delay_ms=stroke_delay_ms,
             progress=progress, should_continue=should_continue,
         )
+
+    def _draw_paths_injector(
+        self,
+        paths,
+        *,
+        speed: float = 1.0,
+        human: float = 0.0,
+        seed: int | None = None,
+        pacing: Pacing | None = None,
+        progress=None,
+        should_continue=None,
+    ) -> int:
+        """Draw through the on-device injector, one process for the whole job.
+
+        This is the path where timing is real. Points are streamed to a process
+        that is already running, so the wait between them is whatever we ask for
+        rather than however long it takes to start another one.
+        """
+        width, height = self.screen_size
+        rng = random.Random(seed)
+
+        if pacing is None:
+            pacing = Pacing() if human else Pacing.instant()
+        if speed and speed != 1.0 and pacing.speed < 1e8:
+            pacing = replace(pacing, speed=pacing.speed * speed,
+                             travel_speed=pacing.travel_speed * speed)
+
+        def clamp(point):
+            return (max(0.0, min(width - 1.0, float(point[0]))),
+                    max(0.0, min(height - 1.0, float(point[1]))))
+
+        sent = 0
+        pen = None
+        with TouchInjector(self) as injector:
+            for index, path in enumerate(paths, start=1):
+                if should_continue is not None and not should_continue():
+                    break
+                if len(path) < 2:
+                    continue
+
+                points = [clamp(point) for point in path]
+                if pen is not None and pacing.lift_ms:
+                    # The hand has to get there. Longer gaps take longer.
+                    travel = math.dist(pen, points[0]) / max(pacing.travel_speed, 1.0) * 1000.0
+                    injector.pause(pacing.lift_ms + travel)
+
+                injector.stroke(points, pacing, rng)
+                pen = points[-1]
+                sent += 1
+
+                if progress is not None and index % 8 == 0:
+                    progress(index, len(paths))
+
+            injector.sync()
+
+        if progress is not None:
+            progress(len(paths), len(paths))
+        return sent
 
     def _draw_paths_raw(
         self,
@@ -378,7 +461,8 @@ class Device:
             progress(len(paths), len(paths))
         return sent
 
-    def estimate_duration(self, paths, *, method: str = "auto", speed: float = 1.0) -> float:
+    def estimate_duration(self, paths, *, method: str = "auto", speed: float = 1.0,
+                          human: float = 0.0) -> float:
         """Roughly how many seconds :meth:`draw_paths` will take.
 
         Worth showing before starting: on the ``input`` path a detailed picture
@@ -386,12 +470,16 @@ class Device:
         indistinguishable from one that has.
         """
         if method == "auto":
-            method = "raw" if self.supports_raw_touch else "input"
+            method = "raw" if self.supports_raw_touch else "injector"
         points = sum(len(path) for path in paths if len(path) >= 2)
         strokes = sum(1 for path in paths if len(path) >= 2)
         if method == "input":
             # Measured on a Pixel 8 Pro: one `input` process costs about 110 ms.
             return (points + strokes * 2) * 0.11 / max(speed, 0.01)
+        if method == "injector":
+            # Two seconds to start the process, then whatever pacing asks for.
+            per_point = 0.012 if human else 0.0015
+            return 2.0 + (points * per_point + strokes * 0.12 * bool(human)) / max(speed, 0.01)
         return (strokes * 0.02 + points * 0.0004) / max(speed, 0.01)
 
     # ----------------------------------------------------------------- streams

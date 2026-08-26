@@ -191,7 +191,7 @@ def _resample(points: Path, settings: HandSettings) -> Path:
 
         # Slow near both ends of the stroke, and through tight curves.
         u = travelled / total
-        envelope = 1.0 - settings.ease * (1.0 - math.sin(math.pi * u) ** 0.7)
+        envelope = 1.0 - settings.ease * (1.0 - max(0.0, math.sin(math.pi * u)) ** 0.7)
         drag = 1.0 / (1.0 + settings.curvature_drag * turn * 6.0)
         step = settings.spacing * max(0.15, envelope * drag)
         travelled += max(step, 1.0)

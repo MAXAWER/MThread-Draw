@@ -37,3 +37,6 @@ screen_tmp.png
 
 # Local virtualenvs
 .venv/
+
+# Superseded by adbtouch/injector.jar, which ships inside the package
+/injector/*.jar

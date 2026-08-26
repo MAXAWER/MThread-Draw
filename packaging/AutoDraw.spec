@@ -29,6 +29,7 @@ IS_MAC = sys.platform == "darwin"
 VERSION = "1.1.0"
 
 datas = collect_data_files("customtkinter")
+datas += [(str(ROOT / "adbtouch" / "injector.jar"), "adbtouch")]
 
 platform_tools = ROOT / "platform-tools"
 if platform_tools.is_dir():

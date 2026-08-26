@@ -208,6 +208,22 @@ screen commonly sits on a 4096-step digitizer. Sending display pixels straight t
 `sendevent` puts the touch in the wrong place. `adbtouch` reads the real axis
 ranges from `getevent -pl` and rescales. Run `adbtouch info` to see yours.
 
+**Three ways in, picked automatically.** Writing kernel events is fastest, but a
+recent Android refuses it: SELinux denies the shell domain write access to
+`/dev/input` however the file permissions read, so `sendevent` fails per line
+while the script exits cleanly. Where that happens, `adbtouch` streams points to
+a small injector it runs on the device instead - one process for a whole
+drawing, with the wait between points under our control. Failing even that, it
+shells out to `input` once per point, which needs nothing installed and costs
+about 110 ms each. `adbtouch info` says which path your device gets.
+
+**Drawing like a hand.** Timing is what gives a machine away, and the injector is
+what makes timing ours to choose. `adbtouch.hand` rounds corners, varies pen
+speed along a stroke, adds a slow tremor, overshoots stroke ends and reorders
+strokes the way a person would; `Pacing` decides how long each point takes. Set
+`human=0` and it draws as fast as the receiving app can sample - about 6 ms a
+point, since anything faster arrives between frames and is never seen.
+
 **Retrace removal.** `findContours` walks the *boundary* of a region, and Canny
 turns one pen stroke into two parallel edges — so the naive path traces up one
 side of every line and back down the other, drawing everything twice.
