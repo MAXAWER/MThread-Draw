@@ -10,7 +10,7 @@ from PIL import Image
 
 from .paths import simplify, tidy
 from .flowlines import coherent_lines, edge_tangent_flow
-from .trace import rank_strokes, thin, trace_skeleton, xdog
+from .trace import rank_strokes, ridges, thin, trace_skeleton, xdog
 
 __all__ = ["VectorizeSettings", "Vectorizer", "dedupe_retrace"]
 
@@ -62,6 +62,9 @@ class VectorizeSettings:
         method: How the lines are found. All but the last are then thinned to
             one pixel and walked into single strokes.
 
+            - ``"neural"`` asks a trained model which edges a person would
+              draw, and is the best answer for a photograph - but it needs a
+              46 MB model downloaded first, and a few seconds to run.
             - ``"canny"`` keeps every bit of detail an edge detector sees, which
               on a photograph of something built - a tower, a machine - is what
               makes it recognisable. The default.
@@ -78,6 +81,10 @@ class VectorizeSettings:
             The knob that decides between long calm strokes and short busy
             ones; only ``"flow"`` uses it.
         ink: Roughly what fraction of the picture becomes line, 0 to 1.
+        detail_keep: For ``"neural"``: what fraction of the edges the model
+            ranks as meaningful to actually draw. This is the quality knob for
+            that method - it is choosing what to leave out, not how sensitive
+            to be.
         stroke_limit: Keep only this many strokes, longest first. Readability is
             mostly about what gets left out.
         target_width: Downscale wide images to this width before edge detection.
@@ -96,6 +103,7 @@ class VectorizeSettings:
     sigma: float = 1.6
     coherence: float = 6.0
     ink: float = 0.16
+    detail_keep: float = 0.65
     stroke_limit: int | None = None
     target_width: int | None = 900
     low_threshold: int = 50
@@ -120,6 +128,7 @@ class VectorizeSettings:
             ink=max(0.03, min(0.35, 0.02 + sensitivity * 0.016)),
             sigma=max(0.8, 2.6 - detail * 0.12),
             coherence=max(2.0, 10.0 - detail * 0.5),
+            detail_keep=max(0.25, min(0.92, 0.18 + detail * 0.075)),
             epsilon=0.5 + (10 - detail) * 0.35,
             **kwargs,
         )
@@ -231,7 +240,12 @@ class Vectorizer:
     def _process_lines(self, image, settings):
         """Lines first, then one stroke along each - not a loop around it."""
         gray = np.asarray(Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)))
-        if settings.method == "canny":
+        if settings.method == "neural":
+            from .neural import edge_probability
+
+            mask = ridges(edge_probability(image), keep=settings.detail_keep,
+                          seed_keep=settings.detail_keep * 0.45)
+        elif settings.method == "canny":
             mask = self._detect_edges(image, settings.low_threshold,
                                       settings.high_threshold) > 0
         elif settings.method == "flow":

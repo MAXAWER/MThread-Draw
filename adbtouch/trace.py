@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import numpy as np
 
-__all__ = ["xdog", "thin", "trace_skeleton", "rank_strokes"]
+__all__ = ["xdog", "ridges", "thin", "trace_skeleton", "rank_strokes"]
 
 
 #: Eight-neighbour offsets, diagonals last so a walk prefers straight steps.
@@ -251,3 +251,53 @@ def rank_strokes(paths, limit: int | None = None, min_points: int = 4):
     ordered = sorted((path for path in paths if len(path) >= min_points),
                      key=length, reverse=True)
     return ordered[:limit] if limit else ordered
+
+
+def ridges(strength: np.ndarray, *, keep: float = 0.65, seed_keep: float = 0.30,
+           floor: float = 0.05) -> np.ndarray:
+    """Reduce a soft edge-strength map to the crest of each ridge.
+
+    A network answers with wide, soft ridges rather than lines. Thresholding one
+    directly gives a band, and thinning a band gives the outline of the band -
+    little closed cells around every patch of texture, which is what a neural
+    edge map looks like when it is used carelessly.
+
+    So take the same step Canny takes: keep a pixel only where it is at least as
+    strong as its two neighbours across the ridge, which leaves the crest one
+    pixel wide, then hysteresis to join the confident parts to the plausible
+    ones.
+
+    Args:
+        strength: Edge strength, roughly 0 to 1.
+        keep: Fraction of the meaningful pixels to admit as line.
+        seed_keep: The stricter fraction used to seed the hysteresis.
+        floor: Values below this are background and take no part in the
+            statistics; without it a mostly-empty map skews every quantile.
+    """
+    import cv2
+
+    gx = cv2.Sobel(strength.astype(np.float32), cv2.CV_32F, 1, 0, ksize=3)
+    gy = cv2.Sobel(strength.astype(np.float32), cv2.CV_32F, 0, 1, ksize=3)
+    angle = (np.rad2deg(np.arctan2(gy, gx)) + 180) % 180
+
+    height, width = strength.shape
+    padded = np.pad(strength, 1, mode="edge")
+
+    def neighbour(dy, dx):
+        return padded[1 + dy:height + 1 + dy, 1 + dx:width + 1 + dx]
+
+    crest = np.zeros_like(strength, dtype=bool)
+    for low, high, (dy, dx) in ((0, 22.5, (0, 1)), (22.5, 67.5, (-1, 1)),
+                                (67.5, 112.5, (-1, 0)), (112.5, 157.5, (-1, -1)),
+                                (157.5, 180.0, (0, 1))):
+        band = (angle >= low) & (angle < high)
+        crest |= band & (strength >= neighbour(dy, dx)) & (strength >= neighbour(-dy, -dx))
+
+    meaningful = strength[strength > floor]
+    if meaningful.size == 0:
+        return np.zeros_like(strength, dtype=bool)
+
+    ridge = strength * crest
+    weak = ridge >= np.quantile(meaningful, 1.0 - keep)
+    strong = ridge >= np.quantile(meaningful, 1.0 - seed_keep)
+    return _hysteresis(strong & crest, weak & crest)
