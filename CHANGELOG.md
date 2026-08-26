@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+- **Place the drawing by hand.** Drag it over the live view, wheel to resize,
+  Shift and wheel to turn, double-click to fit again. `Placement` holds the
+  position in fractions of the screen and degrees, so it survives the phone
+  being turned; a scale of one means "as large as it goes with a margin",
+  whatever the drawing and whatever the phone.
+- **Recordings that replay on a different phone.** `mthread.gestures` decodes
+  raw touch events into strokes of `(time, x, y)` with the coordinates as
+  fractions of the screen, and `Device.play_gestures` scales them to whatever
+  screen it is given. The old format stored digitizer coordinates - which is
+  why replaying one elsewhere was refused - and replayed through `/dev/input`,
+  which every recent Pixel denies to the shell, so it could not be replayed on
+  the phone that made it either. The Windows front end records, plays, opens
+  and saves.
+
 - **A live view of the device screen**, in its own shape, with the strokes laid
   over exactly where they will land. `mthread.mirror.ScreenMirror` runs
   `com.mthread.Mirror` from the same jar as the injector: the phone scales and

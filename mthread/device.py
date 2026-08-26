@@ -12,7 +12,7 @@ from dataclasses import dataclass, replace
 from typing import Iterable, Sequence
 
 from .adb import find_adb, popen_adb, run_adb
-from .errors import DeviceNotConnectedError, TouchDeviceNotFoundError
+from .errors import DeviceNotConnectedError, MThreadError, TouchDeviceNotFoundError
 from .hand import HandSettings, simulate
 from .injector import InjectorUnavailableError, Pacing, TouchInjector
 from .touch import TouchDevice, build_stroke_events, parse_getevent_pl, pick_touchscreen
@@ -111,6 +111,7 @@ class Device:
         self._touch_device: TouchDevice | None = None
         self._screen_size: tuple[int, int] | None = None
         self._supports_raw: bool | None = None
+        self._model: str | None = None
         #: Set when the injector refused to start and the slow path was used.
         self.injector_error = False
 
@@ -164,6 +165,17 @@ class Device:
         with open(local_path, "wb") as handle:
             handle.write(proc.stdout)
         return local_path
+
+    @property
+    def model(self) -> str:
+        """What the phone calls itself, for labelling a recording."""
+        if self._model is None:
+            try:
+                self._model = self.shell("getprop", "ro.product.model",
+                                         check=False).stdout.strip()
+            except MThreadError:
+                self._model = ""
+        return self._model
 
     def set_pointer_location(self, enabled: bool) -> None:
         """Toggle the developer-option touch overlay, handy for calibration."""
@@ -397,6 +409,54 @@ class Device:
         if progress is not None:
             progress(len(paths), len(paths))
         return sent
+
+    def play_gestures(self, session, *, speed: float = 1.0, repeat: int = 1,
+                      progress=None, should_continue=None) -> int:
+        """Replay a :class:`~mthread.gestures.GestureSession` on this device.
+
+        The recording holds fractions of a screen rather than pixels, so it is
+        scaled to whatever screen this device has - which is the whole reason
+        the format exists. Playback goes through the injector, so it works on
+        devices that refuse raw input, which is where the old raw-event replay
+        stopped being usable at all.
+        """
+        if speed <= 0:
+            raise ValueError("speed must be positive")
+
+        width, height = self.screen_size
+        strokes = session.to_pixels(width, height)
+        played = 0
+        queued = 0.0
+
+        with TouchInjector(self) as injector:
+            for turn in range(max(1, repeat)):
+                previous_end = None
+                for index, (stroke, points) in enumerate(zip(session.strokes, strokes), start=1):
+                    if should_continue is not None and not should_continue():
+                        return played
+                    if len(points) < 2:
+                        continue
+
+                    # The gap between one finger lifting and the next landing is
+                    # as much a part of a recording as the strokes themselves.
+                    if previous_end is not None:
+                        gap = (stroke.start - previous_end) * 1000.0 / speed
+                        queued += injector.pause(max(0.0, gap))
+
+                    delays = [(later[0] - earlier[0]) * 1000.0 / speed
+                              for earlier, later in zip(stroke.points, stroke.points[1:])]
+                    queued += injector.timed_stroke(points, delays)
+                    previous_end = stroke.end
+                    played += 1
+
+                    if queued >= LOOKAHEAD_MS:
+                        injector.sync()
+                        queued = 0.0
+                    if progress is not None:
+                        progress(index + turn * len(strokes),
+                                 len(strokes) * max(1, repeat))
+            injector.sync()
+        return played
 
     def _draw_paths_raw(
         self,
