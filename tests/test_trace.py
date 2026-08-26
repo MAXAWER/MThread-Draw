@@ -2,7 +2,7 @@ import unittest
 
 import numpy as np
 
-from adbtouch.trace import rank_strokes, thin, trace_skeleton, xdog
+from adbtouch.trace import rank_strokes, thin, trace_skeleton
 
 
 def bar(height=40, width=60, thickness=5):
@@ -11,37 +11,6 @@ def bar(height=40, width=60, thickness=5):
     mid = height // 2
     image[mid - thickness // 2:mid + thickness // 2 + 1, 5:width - 5] = True
     return image
-
-
-class XdogTests(unittest.TestCase):
-    def test_a_step_edge_becomes_a_line(self):
-        gray = np.zeros((40, 40), dtype=np.uint8)
-        gray[:, 20:] = 255
-        mask = xdog(gray, sigma=1.0, ink=0.1)
-        self.assertTrue(mask.any())
-        # The line belongs at the step, not spread across the flat halves.
-        columns = np.where(mask.any(axis=0))[0]
-        self.assertLess(abs(int(columns.mean()) - 20), 4)
-
-    def test_flat_images_produce_almost_nothing(self):
-        gray = np.full((40, 40), 128, dtype=np.uint8)
-        self.assertLess(xdog(gray, ink=0.1).mean(), 0.2)
-
-    def test_ink_controls_how_much_line_there_is(self):
-        rng = np.random.default_rng(0)
-        gray = (rng.random((80, 80)) * 255).astype(np.uint8)
-        self.assertLess(xdog(gray, ink=0.05).sum(), xdog(gray, ink=0.3).sum())
-
-    def test_the_same_setting_means_the_same_density_at_any_brightness(self):
-        """A fixed threshold would give a dark photo far more ink than a bright
-        one; the quantile is what stops the sliders meaning different things
-        from picture to picture."""
-        rng = np.random.default_rng(1)
-        base = rng.random((80, 80))
-        dark = (base * 90).astype(np.uint8)
-        bright = (base * 90 + 160).astype(np.uint8)
-        self.assertAlmostEqual(xdog(dark, ink=0.15).mean(), xdog(bright, ink=0.15).mean(),
-                               delta=0.05)
 
 
 class ThinTests(unittest.TestCase):

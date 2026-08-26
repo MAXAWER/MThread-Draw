@@ -10,7 +10,7 @@ from PIL import Image
 
 from .paths import simplify, tidy
 from .flowlines import coherent_lines, edge_tangent_flow
-from .trace import rank_strokes, ridges, thin, trace_skeleton, xdog
+from .trace import rank_strokes, ridges, thin, trace_skeleton
 
 __all__ = ["VectorizeSettings", "Vectorizer", "dedupe_retrace"]
 
@@ -71,7 +71,6 @@ class VectorizeSettings:
             - ``"flow"`` builds the direction each line runs in and filters
               along it: calmer, longer strokes, far fewer of them, at several
               times the cost. Better for portraits and organic subjects.
-            - ``"xdog"`` is the same idea without the flow field: quick, noisier.
             - ``"contour"`` is the original path, walking region boundaries with
               findContours. It suits flat vector art, where a region really does
               have an outline, and it traces every line twice on anything else.
@@ -257,7 +256,7 @@ class Vectorizer:
                                   sigma_m=settings.coherence, ink=settings.ink,
                                   flow=self._flow)
         else:
-            mask = xdog(gray, sigma=settings.sigma, ink=settings.ink)
+            raise ValueError(f"unknown tracing method {settings.method!r}")
         skeleton = thin(mask)
         self.edges = (~skeleton * 255).astype(np.uint8)
 

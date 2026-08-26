@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import numpy as np
 
-__all__ = ["xdog", "ridges", "thin", "trace_skeleton", "rank_strokes"]
+__all__ = ["ridges", "thin", "trace_skeleton", "rank_strokes"]
 
 
 #: Eight-neighbour offsets, diagonals last so a walk prefers straight steps.
@@ -51,53 +51,6 @@ def _gaussian(image: np.ndarray, sigma: float) -> np.ndarray:
     for offset, weight in enumerate(kernel):
         out += weight * padded[offset:offset + image.shape[0], :]
     return out
-
-
-def xdog(gray: np.ndarray, *, sigma: float = 1.0, k: float = 1.6, tau: float = 0.98,
-         phi: float = 12.0, ink: float = 0.12, min_contrast: float = 0.006) -> np.ndarray:
-    """Extended difference of Gaussians: a photograph in, line art out.
-
-    Args:
-        gray: Greyscale image, any numeric type; scaled internally to 0-1.
-        sigma: The scale the lines are found at, in pixels. Larger ignores fine
-            texture and keeps only big structure - the single most useful knob
-            for the difference between a sketch and a scribble.
-        k: Ratio between the two blurs. 1.6 approximates a Laplacian of
-            Gaussian, which is the classical choice.
-        tau: How much of the wider blur to subtract. Near 1 gives thin, sparse
-            lines; lower fills in.
-        phi: Sharpness of the soft threshold. High values give crisp black.
-        ink: Roughly what fraction of the picture should end up as line, from 0
-            to 1. The threshold is taken as that quantile of the response, so
-            the same setting means the same density of drawing on a dark photo
-            and a bright one - which a fixed threshold emphatically does not.
-        min_contrast: The floor, in absolute response, under which nothing is a
-            line whatever the quantile says. Without it a relative threshold
-            always finds its quota: point it at a clear sky and it will
-            confidently draw the sensor noise, which is most of what makes a
-            traced photograph look like scribble.
-
-    Returns:
-        A boolean array, True where a line belongs.
-    """
-    image = gray.astype(np.float32)
-    if image.max() > 1.0:
-        image /= 255.0
-
-    narrow = _gaussian(image, sigma)
-    wide = _gaussian(image, sigma * k)
-    difference = narrow - tau * wide
-
-    ink = max(0.005, min(0.6, ink))
-
-    # Hysteresis, and it is the whole difference between line art and dust. One
-    # threshold cuts through the middle of every line that fades: the strong
-    # parts survive, the weak parts vanish, and what is left is dashes. So take
-    # a strict threshold for seeds, a lenient one for what may join them, and
-    # keep only the lenient pixels that can be reached from a seed.
-    strong = (difference <= np.quantile(difference, ink * 0.35)) & (difference <= -min_contrast)
-    weak = (difference <= np.quantile(difference, ink)) & (difference <= -min_contrast * 0.5)
-    return _hysteresis(strong, weak)
 
 
 def _hysteresis(strong: np.ndarray, weak: np.ndarray, max_passes: int = 96) -> np.ndarray:
