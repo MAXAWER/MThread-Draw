@@ -5,29 +5,29 @@ from unittest import mock
 
 import numpy as np
 
-from adbtouch import neural
-from adbtouch.trace import ridges
+from mthread import neural
+from mthread.trace import ridges
 
 
 class ModelLocationTests(unittest.TestCase):
     def test_the_model_lives_outside_the_package(self):
         """A wheel must not grow by 46 MB, and a model should outlive an upgrade."""
-        self.assertNotIn("adbtouch" + os.sep + "adbtouch", str(neural.model_path()))
+        self.assertNotIn("mthread" + os.sep + "mthread", str(neural.model_path()))
         self.assertTrue(str(neural.model_path()).endswith(".onnx"))
 
     def test_the_cache_can_be_pointed_somewhere_else(self):
-        with mock.patch.dict(os.environ, {"ADBTOUCH_CACHE": os.path.join("x", "y")}):
+        with mock.patch.dict(os.environ, {"MTHREAD_CACHE": os.path.join("x", "y")}):
             self.assertEqual(neural.cache_dir(), Path("x") / "y")
 
     def test_a_missing_model_is_not_a_present_one(self):
-        with mock.patch.dict(os.environ, {"ADBTOUCH_CACHE": os.path.join("nowhere", "at", "all")}):
+        with mock.patch.dict(os.environ, {"MTHREAD_CACHE": os.path.join("nowhere", "at", "all")}):
             self.assertFalse(neural.have_model())
 
     def test_a_truncated_download_does_not_count_as_installed(self):
         import tempfile
 
         with tempfile.TemporaryDirectory() as tmp:
-            with mock.patch.dict(os.environ, {"ADBTOUCH_CACHE": tmp}):
+            with mock.patch.dict(os.environ, {"MTHREAD_CACHE": tmp}):
                 neural.model_path().write_bytes(b"not really a model")
                 self.assertFalse(neural.have_model())
 
@@ -35,7 +35,7 @@ class ModelLocationTests(unittest.TestCase):
         import tempfile
 
         with tempfile.TemporaryDirectory() as tmp:
-            with mock.patch.dict(os.environ, {"ADBTOUCH_CACHE": tmp}):
+            with mock.patch.dict(os.environ, {"MTHREAD_CACHE": tmp}):
                 with self.assertRaises(neural.ModelUnavailableError) as ctx:
                     neural.edge_probability(np.zeros((32, 32, 3), dtype=np.uint8))
         message = str(ctx.exception)

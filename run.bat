@@ -1,6 +1,6 @@
 @echo off
 rem One-click launcher for Windows: builds a virtual environment on first run,
-rem then starts the AutoDraw desktop app. Double-click it.
+rem then starts the MThreadDraw desktop app. Double-click it.
 setlocal
 cd /d "%~dp0"
 
@@ -18,7 +18,7 @@ if not exist "%PY%" (
         exit /b 1
     )
 
-    echo Installing AutoDraw and its dependencies. This takes a minute the first time ...
+    echo Installing MThreadDraw and its dependencies. This takes a minute the first time ...
     "%PY%" -m pip install --upgrade pip
     "%PY%" -m pip install -e ".[gui]"
     if errorlevel 1 (
@@ -38,10 +38,10 @@ if errorlevel 1 (
     )
 )
 
-"%PY%" -m autodraw
+"%PY%" -m mthread_draw
 if errorlevel 1 (
     echo.
-    echo AutoDraw exited with an error. Check that USB debugging is enabled
+    echo MThreadDraw exited with an error. Check that USB debugging is enabled
     echo on the phone and that the cable carries data.
     pause
 )

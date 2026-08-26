@@ -1,6 +1,6 @@
 """The engine, driven over a pipe, so a native interface can be a thin one.
 
-    python -m autodraw.server
+    python -m mthread_draw.server
 
 Reads one JSON request per line on stdin and writes one JSON message per line
 on stdout. That is the whole protocol, and it is deliberately the dullest thing
@@ -37,8 +37,8 @@ import time
 import traceback
 from pathlib import Path
 
-from adbtouch import Device, VectorizeSettings, Vectorizer, list_devices, simulate
-from adbtouch.errors import AdbTouchError
+from mthread import Device, VectorizeSettings, Vectorizer, list_devices, simulate
+from mthread.errors import MThreadError
 
 from .geometry import fit_to_screen
 
@@ -82,7 +82,7 @@ class Engine:
 
     def op_screenshot(self) -> dict:
         self._require_device()
-        path = Path(tempfile.gettempdir()) / "autodraw_screen.png"
+        path = Path(tempfile.gettempdir()) / "mthread_draw_screen.png"
         self.device.screenshot(str(path))
         return {"path": str(path)}
 
@@ -97,7 +97,7 @@ class Engine:
         preview, paths = self.vectorizer.process(settings)
         self.paths = paths
 
-        path = Path(tempfile.gettempdir()) / "autodraw_preview.png"
+        path = Path(tempfile.gettempdir()) / "mthread_draw_preview.png"
         preview.save(path)
         return {
             "path": str(path),
@@ -117,7 +117,7 @@ class Engine:
                 human: float = 0.0) -> dict:
         self._require_device()
         if not self.paths:
-            raise AdbTouchError("Load an image and take a preview first.")
+            raise MThreadError("Load an image and take a preview first.")
 
         width, height = self.device.screen_size
         placed = fit_to_screen(self.paths, width, height, margin=margin)
@@ -139,7 +139,7 @@ class Engine:
 
     def _require_device(self) -> None:
         if self.device is None:
-            raise AdbTouchError("No device is connected.")
+            raise MThreadError("No device is connected.")
 
 
 #: Operations that may take a while, and so must not block the reader.
@@ -157,7 +157,7 @@ def serve(stdin=None, stdout=None) -> int:
             stdout.flush()
 
     engine = Engine(write)
-    write({"event": "ready", "version": __import__("autodraw").__version__})
+    write({"event": "ready", "version": __import__("mthread_draw").__version__})
 
     def run(request: dict) -> None:
         identifier = request.get("id")
@@ -170,7 +170,7 @@ def serve(stdin=None, stdout=None) -> int:
         arguments = {k: v for k, v in request.items() if k not in ("id", "op")}
         try:
             write({"id": identifier, "ok": True, "result": handler(**arguments)})
-        except AdbTouchError as exc:
+        except MThreadError as exc:
             write({"id": identifier, "ok": False, "error": str(exc)})
         except Exception as exc:  # pragma: no cover - the front end still needs telling
             write({"id": identifier, "ok": False, "error": f"{type(exc).__name__}: {exc}",

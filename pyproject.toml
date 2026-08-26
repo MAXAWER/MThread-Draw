@@ -3,7 +3,7 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "adbtouch"
+name = "mthread-draw"
 version = "1.1.0"
 description = "Fast synthetic touch input, gesture recording, replay and image drawing for Android over ADB"
 readme = "README.md"
@@ -35,27 +35,27 @@ dependencies = []
 
 [project.optional-dependencies]
 draw = ["opencv-python>=4.5", "numpy>=1.21", "Pillow>=9.0"]
-gui = ["adbtouch[draw]", "customtkinter>=5.2"]
+gui = ["mthread-draw[draw]", "customtkinter>=5.2"]
 bg = ["rembg>=2.0"]
 dev = ["pytest>=7.0"]
-all = ["adbtouch[gui,bg]"]
+all = ["mthread-draw[gui,bg]"]
 
 [project.urls]
-Homepage = "https://github.com/MAXAWER/AutoDraw-Sim"
-Source = "https://github.com/MAXAWER/AutoDraw-Sim"
-Issues = "https://github.com/MAXAWER/AutoDraw-Sim/issues"
-Changelog = "https://github.com/MAXAWER/AutoDraw-Sim/blob/main/CHANGELOG.md"
-Terms = "https://github.com/MAXAWER/AutoDraw-Sim/blob/main/TERMS.md"
+Homepage = "https://github.com/MAXAWER/MThread-Draw"
+Source = "https://github.com/MAXAWER/MThread-Draw"
+Issues = "https://github.com/MAXAWER/MThread-Draw/issues"
+Changelog = "https://github.com/MAXAWER/MThread-Draw/blob/main/CHANGELOG.md"
+Terms = "https://github.com/MAXAWER/MThread-Draw/blob/main/TERMS.md"
 
 [project.scripts]
-adbtouch = "adbtouch.cli:main"
+mthread = "mthread.cli:main"
 
 [project.gui-scripts]
-autodraw = "autodraw.app:main"
+mthread_draw = "mthread_draw.app:main"
 
 [tool.setuptools]
-packages = ["adbtouch", "autodraw"]
+packages = ["mthread", "mthread_draw"]
 
 [tool.setuptools.package-data]
 # The on-device injector, built by tools/build_injector.py.
-adbtouch = ["injector.jar"]
+mthread = ["injector.jar"]

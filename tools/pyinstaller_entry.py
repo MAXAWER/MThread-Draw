@@ -1,6 +1,6 @@
 """Entry point for the PyInstaller build.
 
-``autodraw/__main__.py`` uses a relative import, which PyInstaller cannot use as
+``mthread_draw/__main__.py`` uses a relative import, which PyInstaller cannot use as
 a top-level script. This module is the same call with an absolute import, plus a
 self-test the build pipeline runs before shipping anything.
 """
@@ -14,7 +14,7 @@ from pathlib import Path
 def selftest(report: str | None = None) -> int:
     """Check that the frozen build is actually complete, and say why if not.
 
-    A packaged build breaks in ways a source checkout never does. ``adbtouch``
+    A packaged build breaks in ways a source checkout never does. ``mthread``
     imports its vectoriser lazily, through ``__getattr__``, so PyInstaller's
     static analysis cannot see it and silently leaves it out; the bundled adb
     can arrive without its execute bit; a data file can go missing. Every one of
@@ -39,17 +39,17 @@ def selftest(report: str | None = None) -> int:
     try:
         import customtkinter
 
-        from adbtouch import Device, Recorder, Session, replay  # noqa: F401
-        from adbtouch.vectorize import VectorizeSettings, Vectorizer  # noqa: F401
-        from autodraw.app import App, main  # noqa: F401
+        from mthread import Device, Recorder, Session, replay  # noqa: F401
+        from mthread.vectorize import VectorizeSettings, Vectorizer  # noqa: F401
+        from mthread_draw.app import App, main  # noqa: F401
 
-        lines.append(f"customtkinter {customtkinter.__version__}, adbtouch and autodraw import cleanly")
+        lines.append(f"customtkinter {customtkinter.__version__}, mthread and mthread_draw import cleanly")
     except Exception as exc:
         ok = False
         lines.append(f"application imports failed: {exc!r}")
 
     try:
-        from adbtouch.adb import bundled_candidates, find_adb, run_adb
+        from mthread.adb import bundled_candidates, find_adb, run_adb
 
         path = find_adb()
         bundled = any(Path(candidate) == Path(path) for candidate in bundled_candidates())
@@ -75,7 +75,7 @@ def run() -> int:
         report = sys.argv[index + 1] if len(sys.argv) > index + 1 else None
         return selftest(report)
 
-    from autodraw.app import main
+    from mthread_draw.app import main
 
     return main() or 0
 

@@ -1,4 +1,4 @@
-"""adbtouch - fast synthetic touch input, recording and replay for Android over ADB.
+"""mthread - fast synthetic touch input, recording and replay for Android over ADB.
 
 The library exists because ``adb shell input tap`` is too slow to be useful for
 anything continuous: every call spawns a process on the device and costs
@@ -8,7 +8,7 @@ image drawing practical.
 
 Typical use::
 
-    from adbtouch import Device, Recorder, Session, replay
+    from mthread import Device, Recorder, Session, replay
 
     device = Device()
     recorder = Recorder(device)
@@ -27,7 +27,7 @@ from .injector import InjectorUnavailableError, Pacing, TouchInjector
 from .errors import (
     AdbCommandError,
     AdbNotFoundError,
-    AdbTouchError,
+    MThreadError,
     DeviceNotConnectedError,
     TouchDeviceNotFoundError,
 )
@@ -43,7 +43,7 @@ __version__ = "1.1.0"
 __license__ = "AGPL-3.0-only"
 
 #: Image vectorisation is the only part that needs OpenCV, so it is imported on
-#: first use. That keeps ``pip install adbtouch`` dependency-free for the common
+#: first use. That keeps ``pip install mthread`` dependency-free for the common
 #: case of recording and replaying gestures.
 _LAZY = {"Vectorizer": "vectorize", "VectorizeSettings": "vectorize"}
 
@@ -68,6 +68,6 @@ __all__ = [
     "Recorder", "Session", "InputEvent", "replay", "build_replay_script", "parse_getevent_line",
     "TouchDevice", "parse_getevent_pl", "pick_touchscreen", "build_stroke_events",
     "Vectorizer", "VectorizeSettings",
-    "AdbTouchError", "AdbNotFoundError", "AdbCommandError",
+    "MThreadError", "AdbNotFoundError", "AdbCommandError",
     "DeviceNotConnectedError", "TouchDeviceNotFoundError",
 ]

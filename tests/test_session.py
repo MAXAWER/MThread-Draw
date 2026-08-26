@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from adbtouch.session import SESSION_FORMAT_VERSION, InputEvent, Session
+from mthread.session import SESSION_FORMAT_VERSION, InputEvent, Session
 
 
 def sample_session():

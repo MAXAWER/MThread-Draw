@@ -1,6 +1,6 @@
 import unittest
 
-from adbtouch.touch import (
+from mthread.touch import (
     ABS_MT_POSITION_X,
     ABS_MT_POSITION_Y,
     ABS_MT_TRACKING_ID,

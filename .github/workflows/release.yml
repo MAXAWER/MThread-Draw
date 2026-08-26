@@ -143,9 +143,9 @@ jobs:
 
             | | |
             |---|---|
-            | **Windows** | `AutoDraw-*-x64.msi` — installs like any other program, Start Menu entry included. The `.zip` is the same app with no installer. |
-            | **macOS** | `AutoDraw-*-arm64.dmg` for Apple Silicon, `AutoDraw-*-x64.dmg` for Intel. Drag it to Applications. |
-            | **Linux** | Run from source — see the [README](https://github.com/MAXAWER/AutoDraw-Sim#install-variants). |
+            | **Windows** | `MThreadDraw-*-x64.msi` — installs like any other program, Start Menu entry included. The `.zip` is the same app with no installer. |
+            | **macOS** | `MThreadDraw-*-arm64.dmg` for Apple Silicon, `MThreadDraw-*-x64.dmg` for Intel. Drag it to Applications. |
+            | **Linux** | Run from source — see the [README](https://github.com/MAXAWER/MThread-Draw#install-variants). |
 
             Everything is included: Python, OpenCV and **adb** all travel inside
             the application. There is nothing else to install and no Android SDK
@@ -157,7 +157,7 @@ jobs:
             launch needs a right-click → **Open**, or:
 
             ```
-            xattr -dr com.apple.quarantine /Applications/AutoDraw.app
+            xattr -dr com.apple.quarantine /Applications/MThreadDraw.app
             ```
 
   pypi:

@@ -1,5 +1,5 @@
 # Everything needed to run the desktop app.
-# The adbtouch library alone needs nothing beyond the standard library:
+# The mthread library alone needs nothing beyond the standard library:
 #   pip install -e .
 customtkinter>=5.2,<6
 opencv-python>=4.5

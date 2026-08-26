@@ -95,7 +95,7 @@ def find_adb(explicit: str | None = None) -> str:
     directory or a bare binary beside the working directory, then the default
     SDK location for the running platform.
 
-    The bundled copy outranks ``PATH`` on purpose: an installed AutoDraw should
+    The bundled copy outranks ``PATH`` on purpose: an installed MThread Draw should
     behave the same on every machine, rather than inheriting whichever adb
     happens to be lying around.
 

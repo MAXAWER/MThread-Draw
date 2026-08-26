@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>AutoDraw test canvas</title>
+<title>MThreadDraw test canvas</title>
 <style>
   :root { color-scheme: light; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -32,7 +32,7 @@
 
 <script>
 // A deliberately dumb canvas: every pointer event becomes a line segment, and
-// the counters make it obvious whether the strokes arriving from adbtouch are
+// the counters make it obvious whether the strokes arriving from mthread are
 // the ones it thinks it is sending. The grid is there so a touch landing in the
 // wrong place is visible rather than merely suspected - which is the whole
 // failure mode this project keeps running into on unfamiliar digitizers.

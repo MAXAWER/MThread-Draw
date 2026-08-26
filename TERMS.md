@@ -1,9 +1,9 @@
 # Licensing — Лицензирование
 
-> AutoDraw and `adbtouch` are dual-licensed: **AGPL-3.0** for everyone, and a
+> MThread Draw and `mthread` are dual-licensed: **AGPL-3.0** for everyone, and a
 > **commercial licence** for anyone who cannot accept what the AGPL asks.
 >
-> AutoDraw и `adbtouch` распространяются по двойной лицензии: **AGPL-3.0** для
+> MThread Draw и `mthread` распространяются по двойной лицензии: **AGPL-3.0** для
 > всех и **коммерческая лицензия** для тех, кого условия AGPL не устраивают.
 
 The binding text of the open licence is [`LICENSE`](LICENSE). This page explains
@@ -23,7 +23,7 @@ what it means, in English and Russian, and how to buy your way out of it.
 
 Commercial licences, and any exception, are granted by the author. Ask by
 opening an issue titled **"Licence request"**:
-<https://github.com/MAXAWER/AutoDraw-Sim/issues>
+<https://github.com/MAXAWER/MThread-Draw/issues>
 
 ---
 
@@ -51,7 +51,7 @@ exactly that reason.
 ### The commercial licence
 
 The author holds the copyright, so he can also license the code on other terms.
-A commercial licence is the way to use AutoDraw or `adbtouch` inside a product
+A commercial licence is the way to use MThread Draw or `mthread` inside a product
 whose source you do not intend to publish — including a rebranded or restyled
 version.
 
@@ -76,7 +76,7 @@ not part of it.
 
 ### No warranty
 
-None, and no liability — sections 15 to 17 of the licence. AutoDraw drives
+None, and no liability — sections 15 to 17 of the licence. MThread Draw drives
 input on whatever device you connect to it, and whether that is allowed by the
 rules of a particular game, service or platform is your responsibility.
 
@@ -105,8 +105,8 @@ Open Source Initiative. На практике это значит:
 ### Коммерческая лицензия
 
 Права принадлежат автору, поэтому он может лицензировать код и на других
-условиях. Коммерческая лицензия — это способ использовать AutoDraw или
-`adbtouch` внутри продукта, исходники которого вы публиковать не собираетесь,
+условиях. Коммерческая лицензия — это способ использовать MThread Draw или
+`mthread` внутри продукта, исходники которого вы публиковать не собираетесь,
 включая версию с переделанным оформлением.
 
 Условия обсуждаются отдельно в каждом случае. Опишите, что вы хотите делать, в

@@ -1,4 +1,4 @@
-<h1 align="center">AutoDraw&nbsp;+&nbsp;adbtouch</h1>
+<h1 align="center">MThread Draw&nbsp;+&nbsp;mthread</h1>
 
 <p align="center">
   <b>Draw any picture on an Android screen, and record and replay touch gestures.</b><br>
@@ -6,11 +6,11 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/MAXAWER/AutoDraw-Sim/actions/workflows/ci.yml"><img src="https://github.com/MAXAWER/AutoDraw-Sim/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/MAXAWER/MThread-Draw/actions/workflows/ci.yml"><img src="https://github.com/MAXAWER/MThread-Draw/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/licence-AGPL--3.0-blue" alt="Licence: AGPL-3.0"></a>
   <img src="https://img.shields.io/badge/python-3.9%2B-blue" alt="Python 3.9+">
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey" alt="Windows | macOS | Linux">
-  <a href="https://github.com/MAXAWER/AutoDraw-Sim/stargazers"><img src="https://img.shields.io/github/stars/MAXAWER/AutoDraw-Sim?style=flat&label=stars" alt="Stars"></a>
+  <a href="https://github.com/MAXAWER/MThread-Draw/stargazers"><img src="https://img.shields.io/github/stars/MAXAWER/MThread-Draw?style=flat&label=stars" alt="Stars"></a>
 </p>
 
 <p align="center">
@@ -18,7 +18,7 @@
 </p>
 
 <p align="center">
-  <sub>An ordinary photograph in, 283 strokes and 1,528 touch points out: the exact path list <code>adbtouch</code> sends to the device, in the order it draws them.<br>
+  <sub>An ordinary photograph in, 283 strokes and 1,528 touch points out: the exact path list <code>mthread</code> sends to the device, in the order it draws them.<br>
   On a Pixel 8 Pro that draws in about five seconds. Rendered from a real run by <a href="tools/make_demo.py"><code>tools/make_demo.py</code></a>; playback speed here is arbitrary.</sub>
 </p>
 
@@ -29,7 +29,7 @@
 > **AGPL-3.0, with a commercial licence available.** Use it, change it, share
 > it — but a version you distribute, or run as a service other people use, has
 > to publish its source under the AGPL too. To put it inside a product whose
-> source stays closed, [ask for a commercial licence](https://github.com/MAXAWER/AutoDraw-Sim/issues).
+> source stays closed, [ask for a commercial licence](https://github.com/MAXAWER/MThread-Draw/issues).
 > Full explanation, in English and Russian: **[TERMS.md](TERMS.md)**.
 >
 > **AGPL-3.0 плюс коммерческая лицензия.** Пользуйтесь, меняйте, делитесь — но
@@ -43,8 +43,8 @@
 
 | | |
 |---|---|
-| **Windows** | [**Download the installer**](https://github.com/MAXAWER/AutoDraw-Sim/releases/latest) — `AutoDraw-x.y.z-x64.msi`. Installs like any other program, Start Menu entry and uninstaller included. |
-| **macOS** | [**Download the app**](https://github.com/MAXAWER/AutoDraw-Sim/releases/latest) — `.dmg` for Apple Silicon or Intel. Drag it to Applications. |
+| **Windows** | [**Download the installer**](https://github.com/MAXAWER/MThread-Draw/releases/latest) — `MThreadDraw-x.y.z-x64.msi`. Installs like any other program, Start Menu entry and uninstaller included. |
+| **macOS** | [**Download the app**](https://github.com/MAXAWER/MThread-Draw/releases/latest) — `.dmg` for Apple Silicon or Intel. Drag it to Applications. |
 | **Linux** | Run from source; three commands, [below](#from-source). |
 
 **Nothing else to install.** Python, OpenCV and **adb** all travel inside the
@@ -59,13 +59,13 @@ does not take. Windows SmartScreen says "unknown publisher" once — *More info*
 1. **Turn on USB debugging** on the phone: Settings → About phone → tap *Build
    number* seven times → Developer options → *USB debugging*.
 2. **Plug it in.** Or go wireless: `adb connect 192.168.1.42:5555`.
-3. **Open AutoDraw** → *Connect device* → *Capture screen* → *Load image* → drag
+3. **Open MThread Draw** → *Connect device* → *Capture screen* → *Load image* → drag
    it over the phone preview → **START DRAWING**.
 
 No GUI, no clicking:
 
 ```python
-from adbtouch import Device
+from mthread import Device
 Device().draw_paths([[(100, 200), (400, 200), (400, 600)]])
 ```
 
@@ -121,8 +121,8 @@ helps with portraits and product shots.
 | | |
 |---|---|
 | **Devices** | Any Android phone or tablet that `adb devices` lists — over USB, or wireless ADB (`adb connect <ip>:5555`). Root is not needed on most devices. |
-| **Emulators** | Anything exposing an ADB port: Android Studio AVD, BlueStacks (`:5555`), LDPlayer (`:5555`), Nox (`:62001`), MEmu (`:21503`). Raw `/dev/input` support differs between builds — `adbtouch info` tells you in one line, and [device reports](https://github.com/MAXAWER/AutoDraw-Sim/issues/new?template=device_report.md) are welcome. |
-| **Image formats** | PNG, JPEG, BMP, WebP. Raster only for now; SVG input is [an open task](https://github.com/MAXAWER/AutoDraw-Sim/issues). |
+| **Emulators** | Anything exposing an ADB port: Android Studio AVD, BlueStacks (`:5555`), LDPlayer (`:5555`), Nox (`:62001`), MEmu (`:21503`). Raw `/dev/input` support differs between builds — `mthread info` tells you in one line, and [device reports](https://github.com/MAXAWER/MThread-Draw/issues/new?template=device_report.md) are welcome. |
+| **Image formats** | PNG, JPEG, BMP, WebP. Raster only for now; SVG input is [an open task](https://github.com/MAXAWER/MThread-Draw/issues). |
 | **Host** | Windows, macOS, Linux. Python 3.9+. |
 
 ## What people use it for
@@ -146,17 +146,17 @@ rules; this is a general-purpose input tool.
 100–300 ms each, anything continuous — a gesture, a drawn line, a test script —
 is unusably slow.
 
-`adbtouch` writes raw kernel input events into `/dev/input` through **one** pushed
+`mthread` writes raw kernel input events into `/dev/input` through **one** pushed
 shell script instead. A stroke that takes 40 seconds through `input swipe`
 finishes in well under a second. That single difference is what makes both
 gesture replay and image drawing practical.
 
 This repository is two things:
 
-- **`adbtouch`** — a small Python library for fast synthetic touch input on Android
+- **`mthread`** — a small Python library for fast synthetic touch input on Android
   over ADB. Records gestures, replays them, drives raw `/dev/input` events. Pure
   standard library; the core has no dependencies at all.
-- **`AutoDraw`** — a desktop app built on it, for people who would rather click
+- **`MThread Draw`** — a desktop app built on it, for people who would rather click
   buttons than write code. There are two front ends: a portable one in Python
   that runs anywhere, and a native WinUI 3 one for Windows. Both drive the same
   engine over a pipe, so neither has its own idea of how anything works.
@@ -169,8 +169,8 @@ Press record, do something on the phone, press stop. You get a JSON file with
 every touch event and its timing. Replay it whenever you want, at whatever speed.
 
 ```bash
-adbtouch record -o login.json      # do the thing on the phone, press Enter
-adbtouch play login.json --speed 2 --repeat 5
+mthread record -o login.json      # do the thing on the phone, press Enter
+mthread play login.json --speed 2 --repeat 5
 ```
 
 Useful for regression passes, for reproducing a bug reliably, or for any
@@ -185,8 +185,8 @@ thing: virtual environment, dependencies, and `adb` if the machine has none.
 Otherwise, by hand:
 
 ```bash
-git clone https://github.com/MAXAWER/AutoDraw-Sim.git
-cd AutoDraw-Sim
+git clone https://github.com/MAXAWER/MThread-Draw.git
+cd MThread-Draw
 
 pip install -e .            # library only - no dependencies at all
 pip install -e ".[draw]"    # + image vectorisation (OpenCV, NumPy, Pillow)
@@ -213,18 +213,18 @@ python tools/build_app.py --dmg        # macOS
 ## Command line
 
 ```bash
-adbtouch devices                       # what is attached
-adbtouch info                          # screen size and digitizer ranges
-adbtouch record -o session.json        # record until Enter
-adbtouch record -o session.json -d 30  # record for 30 seconds
-adbtouch play session.json             # replay once
-adbtouch play session.json --speed 0.5 --repeat 3
+mthread devices                       # what is attached
+mthread info                          # screen size and digitizer ranges
+mthread record -o session.json        # record until Enter
+mthread record -o session.json -d 30  # record for 30 seconds
+mthread play session.json             # replay once
+mthread play session.json --speed 0.5 --repeat 3
 ```
 
 ## Library
 
 ```python
-from adbtouch import Device, Recorder, Session, replay
+from mthread import Device, Recorder, Session, replay
 
 device = Device()
 print(device.screen_size, device.touch_device.path)
@@ -248,20 +248,20 @@ round trip instead of thousands.
 **Coordinate translation.** The touchscreen digitizer has its own coordinate
 space, and on many phones it is *not* the display resolution — a 1080-pixel-wide
 screen commonly sits on a 4096-step digitizer. Sending display pixels straight to
-`sendevent` puts the touch in the wrong place. `adbtouch` reads the real axis
-ranges from `getevent -pl` and rescales. Run `adbtouch info` to see yours.
+`sendevent` puts the touch in the wrong place. `mthread` reads the real axis
+ranges from `getevent -pl` and rescales. Run `mthread info` to see yours.
 
 **Three ways in, picked automatically.** Writing kernel events is fastest, but a
 recent Android refuses it: SELinux denies the shell domain write access to
 `/dev/input` however the file permissions read, so `sendevent` fails per line
-while the script exits cleanly. Where that happens, `adbtouch` streams points to
+while the script exits cleanly. Where that happens, `mthread` streams points to
 a small injector it runs on the device instead - one process for a whole
 drawing, with the wait between points under our control. Failing even that, it
 shells out to `input` once per point, which needs nothing installed and costs
-about 110 ms each. `adbtouch info` says which path your device gets.
+about 110 ms each. `mthread info` says which path your device gets.
 
 **Drawing like a hand.** Timing is what gives a machine away, and the injector is
-what makes timing ours to choose. `adbtouch.hand` rounds corners, varies pen
+what makes timing ours to choose. `mthread.hand` rounds corners, varies pen
 speed along a stroke, adds a slow tremor, overshoots stroke ends and reorders
 strokes the way a person would; `Pacing` decides how long each point takes. Set
 `human=0` and it draws as fast as the receiving app can sample - about 6 ms a
@@ -284,7 +284,7 @@ one of them, while leaving genuine closed shapes like circles intact.
 - **Some devices expose no touchscreen usable by `sendevent`.** Drawing then fails
   with an explicit error instead of a wrong result; `Device.swipe()` still works,
   and an automatic fallback is an open task.
-- **`adbtouch info` is the first thing to check** when touches land in the wrong
+- **`mthread info` is the first thing to check** when touches land in the wrong
   place.
 
 ---
@@ -292,7 +292,7 @@ one of them, while leaving genuine closed shapes like circles intact.
 ## Open ends
 
 Contributions welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). Issues labelled
-[`good first issue`](https://github.com/MAXAWER/AutoDraw-Sim/labels/good%20first%20issue)
+[`good first issue`](https://github.com/MAXAWER/MThread-Draw/labels/good%20first%20issue)
 are the easiest way in. Things worth doing:
 
 - SVG input, so line art skips edge detection entirely.
@@ -310,10 +310,10 @@ are the easiest way in. Things worth doing:
 ## If something does not work
 
 Open an issue — there are templates for
-[bugs](https://github.com/MAXAWER/AutoDraw-Sim/issues/new?template=bug_report.md)
-and for [device reports](https://github.com/MAXAWER/AutoDraw-Sim/issues/new?template=device_report.md).
+[bugs](https://github.com/MAXAWER/MThread-Draw/issues/new?template=bug_report.md)
+and for [device reports](https://github.com/MAXAWER/MThread-Draw/issues/new?template=device_report.md).
 Touches landing in the wrong place, a phone that refuses to connect, an emulator
-behaving differently — paste the output of `adbtouch info` and it is usually a
+behaving differently — paste the output of `mthread info` and it is usually a
 short fix. Digitizer ranges differ wildly between panels, and only what people
 report can be handled.
 
@@ -339,18 +339,18 @@ explained in plain English and Russian in **[TERMS.md](TERMS.md)**.
 
 Две части в одном репозитории:
 
-- **`adbtouch`** — библиотека для быстрого синтетического ввода касаний на Android
+- **`mthread`** — библиотека для быстрого синтетического ввода касаний на Android
   через ADB. Записывает жесты, воспроизводит их, работает с событиями
   `/dev/input` напрямую. Ядро не требует зависимостей.
-- **`AutoDraw`** — десктопное приложение поверх неё, для тех, кто предпочитает
+- **`MThread Draw`** — десктопное приложение поверх неё, для тех, кто предпочитает
   кнопки коду.
 
 ## Установка
 
 | | |
 |---|---|
-| **Windows** | [**Скачать установщик**](https://github.com/MAXAWER/AutoDraw-Sim/releases/latest) — `AutoDraw-x.y.z-x64.msi`. Ставится как обычная программа, с ярлыком в меню «Пуск» и деинсталлятором. |
-| **macOS** | [**Скачать приложение**](https://github.com/MAXAWER/AutoDraw-Sim/releases/latest) — `.dmg` для Apple Silicon или Intel, перетащить в Applications. |
+| **Windows** | [**Скачать установщик**](https://github.com/MAXAWER/MThread-Draw/releases/latest) — `MThreadDraw-x.y.z-x64.msi`. Ставится как обычная программа, с ярлыком в меню «Пуск» и деинсталлятором. |
+| **macOS** | [**Скачать приложение**](https://github.com/MAXAWER/MThread-Draw/releases/latest) — `.dmg` для Apple Silicon или Intel, перетащить в Applications. |
 | **Linux** | Из исходников, три команды — [ниже](#из-исходников). |
 
 **Больше ничего ставить не нужно.** Python, OpenCV и **adb** лежат внутри самого
@@ -366,7 +366,7 @@ explained in plain English and Russian in **[TERMS.md](TERMS.md)**.
 1. **Включить отладку по USB**: Настройки → О телефоне → семь раз по «Номер
    сборки» → Для разработчиков → Отладка по USB.
 2. **Подключить телефон.** Или по Wi-Fi: `adb connect 192.168.1.42:5555`.
-3. **Открыть AutoDraw** → *Connect device* → *Capture screen* → *Load image* →
+3. **Открыть MThread Draw** → *Connect device* → *Capture screen* → *Load image* →
    перетащить картинку на превью экрана → **START DRAWING**.
 
 <a name="из-исходников"></a>
@@ -374,10 +374,10 @@ explained in plain English and Russian in **[TERMS.md](TERMS.md)**.
 ### Из исходников
 
 ```bash
-git clone https://github.com/MAXAWER/AutoDraw-Sim.git
-cd AutoDraw-Sim
+git clone https://github.com/MAXAWER/MThread-Draw.git
+cd MThread-Draw
 pip install -e ".[gui]"
-autodraw
+mthread_draw
 ```
 
 Проще запустить [`run.bat`](run.bat) на Windows или [`run.sh`](run.sh) на macOS и
@@ -432,7 +432,7 @@ python tools/fetch_platform_tools.py     # ~7 МБ, прямо от Google
 | | |
 |---|---|
 | **Устройства** | Любой телефон или планшет, который виден в `adb devices` — по USB или по Wi-Fi (`adb connect <ip>:5555`). На большинстве устройств root не нужен. |
-| **Эмуляторы** | Всё, что открывает порт ADB: Android Studio AVD, BlueStacks (`:5555`), LDPlayer (`:5555`), Nox (`:62001`), MEmu (`:21503`). Поддержка сырого `/dev/input` отличается от сборки к сборке — `adbtouch info` покажет за одну строку. Отчёты о конкретных устройствах приветствуются. |
+| **Эмуляторы** | Всё, что открывает порт ADB: Android Studio AVD, BlueStacks (`:5555`), LDPlayer (`:5555`), Nox (`:62001`), MEmu (`:21503`). Поддержка сырого `/dev/input` отличается от сборки к сборке — `mthread info` покажет за одну строку. Отчёты о конкретных устройствах приветствуются. |
 | **Форматы** | PNG, JPEG, BMP, WebP. Пока только растр; SVG — в списке задач. |
 | **Хост** | Windows, macOS, Linux. Python 3.9+. |
 
@@ -440,7 +440,7 @@ python tools/fetch_platform_tools.py     # ~7 МБ, прямо от Google
 
 `adb shell input tap` запускает отдельный процесс на устройстве при каждом
 вызове — 100–300 мс на команду. Для чего-либо непрерывного это неприемлемо
-медленно. `adbtouch` пишет события ядра напрямую через **один** сценарий,
+медленно. `mthread` пишет события ядра напрямую через **один** сценарий,
 загруженный на устройство. Штрих, который через `input swipe` рисуется 40 секунд,
 здесь занимает меньше секунды.
 
@@ -459,10 +459,10 @@ python tools/fetch_platform_tools.py     # ~7 МБ, прямо от Google
 ## Командная строка
 
 ```bash
-adbtouch devices                  # какие устройства подключены
-adbtouch info                     # разрешение экрана и диапазоны тачскрина
-adbtouch record -o session.json   # запись до нажатия Enter
-adbtouch play session.json --speed 2 --repeat 5
+mthread devices                  # какие устройства подключены
+mthread info                     # разрешение экрана и диапазоны тачскрина
+mthread record -o session.json   # запись до нажатия Enter
+mthread play session.json --speed 2 --repeat 5
 ```
 
 Если `adb` установлен в нестандартное место — укажите путь в переменной
@@ -477,15 +477,15 @@ adbtouch play session.json --speed 2 --repeat 5
 - На части устройств тачскрин недоступен для `sendevent`. Тогда рисование
   завершится понятной ошибкой, а не кривым результатом; `Device.swipe()`
   продолжает работать, автоматический откат — в списке задач.
-- Если касания попадают не туда — начните с `adbtouch info`.
+- Если касания попадают не туда — начните с `mthread info`.
 
 ## Если что-то не работает
 
 Заведите issue — есть шаблоны для
-[багов](https://github.com/MAXAWER/AutoDraw-Sim/issues/new?template=bug_report.md)
-и для [отчётов об устройстве](https://github.com/MAXAWER/AutoDraw-Sim/issues/new?template=device_report.md).
+[багов](https://github.com/MAXAWER/MThread-Draw/issues/new?template=bug_report.md)
+и для [отчётов об устройстве](https://github.com/MAXAWER/MThread-Draw/issues/new?template=device_report.md).
 Касания не туда, телефон не подключается, эмулятор ведёт себя иначе — приложите
-вывод `adbtouch info`, обычно это чинится быстро. Диапазоны координат тачскрина у
+вывод `mthread info`, обычно это чинится быстро. Диапазоны координат тачскрина у
 разных панелей разные, и починить можно только то, что видно.
 
 **Если инструмент сэкономил вам вечер — звезда ⭐ ничего не стоит, а найти проект

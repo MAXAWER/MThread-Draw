@@ -1,6 +1,6 @@
 """Drive the on-device touch injector.
 
-Why this exists is in ``injector/src/com/adbtouch/Injector.java``: on a phone
+Why this exists is in ``injector/src/com/mthread/Injector.java``: on a phone
 where the shell user cannot write to ``/dev/input``, the only other way in is
 the framework, and the ``input`` command pays a whole process - about 110 ms -
 for every single point. That is not a pacing problem that can be tuned away. A
@@ -25,15 +25,15 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .adb import no_window_kwargs
-from .errors import AdbTouchError
+from .errors import MThreadError
 
 __all__ = ["InjectorUnavailableError", "Pacing", "TouchInjector", "pace_stroke"]
 
-REMOTE_JAR = "/data/local/tmp/adbtouch-injector.jar"
+REMOTE_JAR = "/data/local/tmp/mthread-injector.jar"
 JAR_NAME = "injector.jar"
 
 
-class InjectorUnavailableError(AdbTouchError):
+class InjectorUnavailableError(MThreadError):
     """The device would not run the injector; the caller should fall back."""
 
 
@@ -50,7 +50,7 @@ def bundled_jar() -> Path | None:
 
     meipass = getattr(sys, "_MEIPASS", None)
     if meipass:
-        for candidate in (Path(meipass) / "adbtouch" / JAR_NAME, Path(meipass) / JAR_NAME):
+        for candidate in (Path(meipass) / "mthread" / JAR_NAME, Path(meipass) / JAR_NAME):
             if candidate.is_file():
                 return candidate
     return None
@@ -178,7 +178,7 @@ class TouchInjector:
 
         command = [
             self.device.adb_path, "-s", self.device.serial, "shell",
-            f"CLASSPATH={REMOTE_JAR} app_process / com.adbtouch.Injector",
+            f"CLASSPATH={REMOTE_JAR} app_process / com.mthread.Injector",
         ]
         self.process = subprocess.Popen(
             command,
@@ -253,7 +253,7 @@ class TouchInjector:
                 return
             reply = (self.process.stdout.readline() or "").strip()
         if reply.startswith("ERR"):
-            raise AdbTouchError(f"The injector reported: {reply}")
+            raise MThreadError(f"The injector reported: {reply}")
 
     # ------------------------------------------------------------------- stop
 

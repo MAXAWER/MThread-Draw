@@ -3,9 +3,9 @@ import pathlib
 import unittest
 import unittest.mock
 
-from adbtouch.device import Device, DeviceInfo, REMOTE_TMP
-from adbtouch.injector import InjectorUnavailableError
-from adbtouch.touch import ABS_MT_POSITION_X, ABS_MT_TRACKING_ID, TouchDevice
+from mthread.device import Device, DeviceInfo, REMOTE_TMP
+from mthread.injector import InjectorUnavailableError
+from mthread.touch import ABS_MT_POSITION_X, ABS_MT_TRACKING_ID, TouchDevice
 
 
 def make_device(screen=(1080, 2400), touch=None, raw=True):
@@ -124,7 +124,7 @@ class RunScriptTests(unittest.TestCase):
                 calls.append(["<<body>>", pathlib.Path(args[3]).read_text()])
             return unittest.mock.Mock(returncode=0, stdout="", stderr="")
 
-        with unittest.mock.patch("adbtouch.device.run_adb", side_effect=fake_run_adb):
+        with unittest.mock.patch("mthread.device.run_adb", side_effect=fake_run_adb):
             device.run_script(lines)
         return calls
 
@@ -235,7 +235,7 @@ class FallbackDrawingTests(unittest.TestCase):
             def sync(self, timeout=600.0):
                 pass
 
-        with unittest.mock.patch("adbtouch.device.TouchInjector", Stub):
+        with unittest.mock.patch("mthread.device.TouchInjector", Stub):
             device.draw_paths([[(1, 1), (2, 2)]])
         self.assertEqual(started[0], device)
         self.assertEqual(device.scripts, [])
@@ -248,7 +248,7 @@ class FallbackDrawingTests(unittest.TestCase):
         def refuse(*args, **kwargs):
             raise InjectorUnavailableError("no app_process here")
 
-        with unittest.mock.patch("adbtouch.device.TouchInjector", refuse):
+        with unittest.mock.patch("mthread.device.TouchInjector", refuse):
             device.draw_paths([[(1, 1), (2, 2)]])
         self.assertIn("input motionevent", chr(10).join(device.scripts[0]))
         self.assertTrue(device.injector_error)

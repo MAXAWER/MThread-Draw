@@ -1,6 +1,6 @@
 import unittest
 
-from autodraw.geometry import CanvasView, place_paths
+from mthread_draw.geometry import CanvasView, place_paths
 
 
 class CanvasViewTests(unittest.TestCase):

@@ -2,10 +2,10 @@ using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
-namespace AutoDraw;
+namespace MThreadDraw;
 
 /// <summary>
-/// The AutoDraw engine, running as a child process and spoken to over a pipe.
+/// The MThread Draw engine, running as a child process and spoken to over a pipe.
 /// </summary>
 /// <remarks>
 /// <para>Everything interesting - tracing an image, finding a device, injecting
@@ -41,7 +41,7 @@ public sealed class Engine : IAsyncDisposable
         var here = AppContext.BaseDirectory;
 
         // A release ships the engine as one executable beside the app.
-        var packaged = Path.Combine(here, "engine", "autodraw-engine.exe");
+        var packaged = Path.Combine(here, "engine", "mthread-draw-engine.exe");
         if (File.Exists(packaged))
         {
             return (packaged, string.Empty);
@@ -52,7 +52,7 @@ public sealed class Engine : IAsyncDisposable
         var repository = FindRepository();
         var venv = repository is null ? null : Path.Combine(repository, "venv", "Scripts", "python.exe");
         var python = venv is not null && File.Exists(venv) ? venv : "python";
-        return (python, "-m autodraw.server");
+        return (python, "-m mthread_draw.server");
     }
 
     /// <summary>Walk up from the binary looking for the engine's own source.</summary>
@@ -67,7 +67,7 @@ public sealed class Engine : IAsyncDisposable
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
         while (directory is not null)
         {
-            if (File.Exists(Path.Combine(directory.FullName, "autodraw", "server.py")))
+            if (File.Exists(Path.Combine(directory.FullName, "mthread_draw", "server.py")))
             {
                 return directory.FullName;
             }

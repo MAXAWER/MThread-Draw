@@ -1,4 +1,4 @@
-"""The AutoDraw desktop window."""
+"""The MThread Draw desktop window."""
 
 from __future__ import annotations
 
@@ -12,14 +12,14 @@ import tkinter as tk
 from tkinter import filedialog, messagebox
 from PIL import Image, ImageTk
 
-from adbtouch import Device, Recorder, Session, VectorizeSettings, Vectorizer, replay, simulate
-from adbtouch.errors import AdbTouchError
+from mthread import Device, Recorder, Session, VectorizeSettings, Vectorizer, replay, simulate
+from mthread.errors import MThreadError
 
 from .geometry import CanvasView, place_paths
 
 CANVAS_MARGIN = 40
 IMAGE_TYPES = [("Images", "*.png *.jpg *.jpeg *.bmp *.webp"), ("All files", "*.*")]
-SESSION_TYPES = [("AutoDraw recording", "*.json"), ("All files", "*.*")]
+SESSION_TYPES = [("MThread Draw recording", "*.json"), ("All files", "*.*")]
 
 
 class App:
@@ -37,7 +37,7 @@ class App:
         ctk.set_default_color_theme("blue")
 
         self.root = ctk.CTk()
-        self.root.title("AutoDraw - draw, record and replay on Android")
+        self.root.title("MThread Draw - draw, record and replay on Android")
         self.root.geometry("1280x860")
         self.root.minsize(1000, 700)
 
@@ -75,7 +75,7 @@ class App:
         header.grid(row=0, column=0, sticky="ew")
         header.grid_columnconfigure(4, weight=1)
 
-        ctk.CTkLabel(header, text="AutoDraw", font=ctk.CTkFont(size=20, weight="bold")).grid(
+        ctk.CTkLabel(header, text="MThread Draw", font=ctk.CTkFont(size=20, weight="bold")).grid(
             row=0, column=0, padx=(20, 16), pady=12
         )
         self.btn_connect = ctk.CTkButton(header, text="Connect device", width=140, command=self.connect)
@@ -250,7 +250,7 @@ class App:
         def wrapper():
             try:
                 target(*args)
-            except AdbTouchError as exc:
+            except MThreadError as exc:
                 self.set_status(str(exc), "orange")
             except Exception as exc:  # pragma: no cover - surfaced in the UI
                 traceback.print_exc()
@@ -279,20 +279,20 @@ class App:
     def connect(self) -> None:
         try:
             self.device = Device()
-        except AdbTouchError as exc:
+        except MThreadError as exc:
             self.device = None
             self.set_status(str(exc), "orange")
             return
         try:
             self.screen_size = self.device.screen_size
-        except AdbTouchError as exc:
+        except MThreadError as exc:
             self.set_status(str(exc), "orange")
             return
         detail = f"{self.device.serial} - {self.screen_size[0]}x{self.screen_size[1]}"
         try:
             touch = self.device.touch_device
             detail += f" - touch {touch.path}"
-        except AdbTouchError:
+        except MThreadError:
             detail += " - no raw touch device (slow mode)"
         self.set_status(detail, "#4caf50")
         self._redraw_phone_rect()
@@ -303,7 +303,7 @@ class App:
 
         def work():
             self.set_status("Capturing screen...", "yellow")
-            path = os.path.join(tempfile.gettempdir(), "autodraw_screen.png")
+            path = os.path.join(tempfile.gettempdir(), "mthread_draw_screen.png")
             self.device.screenshot(path)
             self.background_image = Image.open(path).copy()
             self.set_status("Screen captured", "#4caf50")
@@ -457,7 +457,7 @@ class App:
             raw = self.device.supports_raw_touch
             seconds = self.device.estimate_duration(
                 paths, method="raw" if raw else "input", speed=self.draw_speed)
-        except AdbTouchError as exc:
+        except MThreadError as exc:
             self.lbl_method.configure(text=str(exc))
             return
 
@@ -484,7 +484,7 @@ class App:
         try:
             self.vectorizer.load_image(path)
         except ValueError as exc:
-            messagebox.showerror("AutoDraw", str(exc))
+            messagebox.showerror("MThread Draw", str(exc))
             return
         self._placed = False
         self.refresh_preview()
@@ -576,7 +576,7 @@ class App:
         self.recorder = Recorder(self.device)
         try:
             self.recorder.start()
-        except AdbTouchError as exc:
+        except MThreadError as exc:
             self.set_status(str(exc), "orange")
             return
         self.btn_record.configure(text="Stop recording", fg_color="#c25a00")
@@ -648,7 +648,7 @@ class App:
         try:
             self.session = Session.load(path)
         except (ValueError, OSError) as exc:
-            messagebox.showerror("AutoDraw", f"Could not open the recording:\n{exc}")
+            messagebox.showerror("MThread Draw", f"Could not open the recording:\n{exc}")
             return
         self.set_status(f"Loaded {os.path.basename(path)}", "#4caf50")
         self._describe_session()

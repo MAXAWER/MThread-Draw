@@ -1,7 +1,7 @@
 """Render the README demo assets from real vectoriser runs.
 
 Nothing here is mocked: the strokes animated in the GIF, and every line in the
-gallery, are exactly the paths :class:`adbtouch.Vectorizer` hands to the device,
+gallery, are exactly the paths :class:`mthread.Vectorizer` hands to the device,
 in the order the device draws them. The source panels are the unmodified colour
 photographs that produced them, which is the whole point - you feed it an
 ordinary picture, not prepared line art.
@@ -22,7 +22,7 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 
-from adbtouch.vectorize import VectorizeSettings, Vectorizer
+from mthread.vectorize import VectorizeSettings, Vectorizer
 
 
 @dataclass(frozen=True)

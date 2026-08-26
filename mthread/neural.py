@@ -26,7 +26,7 @@ from pathlib import Path
 
 import numpy as np
 
-from .errors import AdbTouchError
+from .errors import MThreadError
 
 __all__ = ["MODEL_URL", "model_path", "have_model", "download_model", "edge_probability"]
 
@@ -40,7 +40,7 @@ MODEL_BYTES = 46 * 1024 * 1024  # approximate, for progress reporting
 MEAN = (103.5, 116.2, 123.6)
 
 
-class ModelUnavailableError(AdbTouchError):
+class ModelUnavailableError(MThreadError):
     """The model is not downloaded, and nothing may download it silently."""
 
 
@@ -50,13 +50,13 @@ def cache_dir() -> Path:
     Not inside the package: a wheel should not grow by 46 MB, and a model that
     outlives an upgrade is a feature.
     """
-    base = os.environ.get("ADBTOUCH_CACHE")
+    base = os.environ.get("MTHREAD_CACHE")
     if base:
         return Path(base)
     if os.name == "nt":
         root = os.environ.get("LOCALAPPDATA") or Path.home() / "AppData" / "Local"
-        return Path(root) / "adbtouch"
-    return Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "adbtouch"
+        return Path(root) / "mthread"
+    return Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "mthread"
 
 
 def model_path() -> Path:

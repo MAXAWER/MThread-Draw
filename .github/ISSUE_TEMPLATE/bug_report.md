@@ -16,7 +16,7 @@ labels: bug
 - OS:
 - Python version:
 - Phone model and Android version:
-- Output of `adbtouch info` (this shows the screen size and digitizer ranges):
+- Output of `mthread info` (this shows the screen size and digitizer ranges):
 
 ```
 paste here

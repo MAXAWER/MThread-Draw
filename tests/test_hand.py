@@ -1,7 +1,7 @@
 import math
 import unittest
 
-from adbtouch.hand import HandSettings, reorder_strokes, simulate
+from mthread.hand import HandSettings, reorder_strokes, simulate
 
 
 def bounds(paths):

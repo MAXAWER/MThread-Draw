@@ -1,4 +1,4 @@
-"""Build the packaged AutoDraw application, and its installer.
+"""Build the packaged MThread Draw application, and its installer.
 
 One command, the same one CI runs, so a release can be reproduced locally:
 
@@ -8,7 +8,7 @@ One command, the same one CI runs, so a release can be reproduced locally:
     python tools/build_app.py --archive  # + a .tar.gz / .zip of the app folder
 
 The result is self-contained: Python, OpenCV, Tk and adb all travel inside it,
-so the person installing AutoDraw installs nothing else.
+so the person installing MThread Draw installs nothing else.
 
 Requires PyInstaller, and for --msi the `wix` dotnet tool:
 
@@ -30,7 +30,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 DIST = ROOT / "dist"
 BUILD = ROOT / "build"
-SPEC = ROOT / "packaging" / "AutoDraw.spec"
+SPEC = ROOT / "packaging" / "MThreadDraw.spec"
 
 IS_WINDOWS = sys.platform.startswith("win")
 IS_MAC = sys.platform == "darwin"
@@ -39,11 +39,11 @@ IS_MAC = sys.platform == "darwin"
 def version() -> str:
     """Read the version from the package, so nothing carries a second copy."""
     scope: dict = {}
-    for line in (ROOT / "autodraw" / "__init__.py").read_text(encoding="utf-8").splitlines():
+    for line in (ROOT / "mthread_draw" / "__init__.py").read_text(encoding="utf-8").splitlines():
         if line.startswith("__version__"):
             exec(line, scope)  # noqa: S102 - a single literal assignment
             return scope["__version__"]
-    raise SystemExit("could not find __version__ in autodraw/__init__.py")
+    raise SystemExit("could not find __version__ in mthread_draw/__init__.py")
 
 
 def arch_tag() -> str:
@@ -57,7 +57,7 @@ def run(*command: str, cwd: Path | None = None) -> None:
 
 
 def ensure_icon() -> None:
-    icon = ROOT / "packaging" / ("autodraw.ico" if IS_WINDOWS else "autodraw.png")
+    icon = ROOT / "packaging" / ("mthreaddraw.ico" if IS_WINDOWS else "mthreaddraw.png")
     if not icon.is_file():
         run(sys.executable, ROOT / "tools" / "make_icon.py")
 
@@ -70,7 +70,7 @@ def ensure_platform_tools(skip: bool) -> None:
 
 
 def build_app() -> Path:
-    app = DIST / ("AutoDraw.app" if IS_MAC else "AutoDraw")
+    app = DIST / ("MThreadDraw.app" if IS_MAC else "MThreadDraw")
     # Clear the previous app, not the whole dist directory: dist also holds the
     # installers, and on Windows something as ordinary as an open Explorer
     # window keeps a handle on the folder itself.
@@ -92,8 +92,8 @@ def selftest(app: Path) -> None:
     Without this a broken build looks exactly like a working one until someone
     double-clicks it and gets a traceback in a dialog box.
     """
-    executable = app / "Contents" / "MacOS" / "AutoDraw" if IS_MAC else app / (
-        "AutoDraw.exe" if IS_WINDOWS else "AutoDraw")
+    executable = app / "Contents" / "MacOS" / "MThreadDraw" if IS_MAC else app / (
+        "MThreadDraw.exe" if IS_WINDOWS else "MThreadDraw")
     report = BUILD / "selftest.txt"
     report.unlink(missing_ok=True)
 
@@ -125,13 +125,13 @@ def build_msi(app: Path) -> Path:
     if shutil.which("wix") is None:
         raise SystemExit("wix not found. Install it with: dotnet tool install --global wix")
 
-    out = DIST / f"AutoDraw-{version()}-{arch_tag()}.msi"
+    out = DIST / f"MThreadDraw-{version()}-{arch_tag()}.msi"
     run(
-        "wix", "build", ROOT / "packaging" / "AutoDraw.wxs",
+        "wix", "build", ROOT / "packaging" / "MThreadDraw.wxs",
         "-arch", "x64",
         "-d", f"Version={version()}",
         "-d", f"SourceDir={app}",
-        "-d", f"IconFile={ROOT / 'packaging' / 'autodraw.ico'}",
+        "-d", f"IconFile={ROOT / 'packaging' / 'mthreaddraw.ico'}",
         "-o", out,
     )
     size_mb = out.stat().st_size // 1024 // 1024
@@ -148,7 +148,7 @@ def build_dmg(app: Path) -> Path:
     if not IS_MAC:
         raise SystemExit("--dmg only works on macOS")
 
-    out = DIST / f"AutoDraw-{version()}-{arch_tag()}.dmg"
+    out = DIST / f"MThreadDraw-{version()}-{arch_tag()}.dmg"
     staging = BUILD / "dmg"
     if staging.exists():
         shutil.rmtree(staging)
@@ -159,7 +159,7 @@ def build_dmg(app: Path) -> Path:
 
     if out.exists():
         out.unlink()
-    run("hdiutil", "create", "-volname", "AutoDraw", "-srcfolder", staging,
+    run("hdiutil", "create", "-volname", "MThread Draw", "-srcfolder", staging,
         "-ov", "-format", "UDZO", out)
     print(f"built {out} ({out.stat().st_size // 1024 // 1024} MB)")
     return out
@@ -175,12 +175,12 @@ def build_winui() -> Path:
     if not IS_WINDOWS:
         raise SystemExit("--winui only works on Windows")
 
-    project = ROOT / "winui" / "AutoDraw.WinUI.csproj"
-    out = DIST / "AutoDraw-WinUI"
+    project = ROOT / "winui" / "MThreadDraw.WinUI.csproj"
+    out = DIST / "MThreadDraw-WinUI"
     run("dotnet", "publish", project, "-c", "Release", "-r", "win-x64",
         "--self-contained", "true", "-o", out)
 
-    engine = DIST / "autodraw-engine"
+    engine = DIST / "mthread-draw-engine"
     if not engine.is_dir():
         raise SystemExit("the engine was not built; run without --no-adb first")
     target = out / "engine"
@@ -195,7 +195,7 @@ def build_winui() -> Path:
 
 def build_archive(app: Path) -> Path:
     """A plain archive of the app folder, for people who do not want an installer."""
-    stem = f"AutoDraw-{version()}-{platform.system().lower()}-{arch_tag()}"
+    stem = f"MThreadDraw-{version()}-{platform.system().lower()}-{arch_tag()}"
     if IS_WINDOWS:
         out = Path(shutil.make_archive(str(DIST / stem), "zip", root_dir=app.parent, base_dir=app.name))
     else:

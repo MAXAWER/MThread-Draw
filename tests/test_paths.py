@@ -1,6 +1,6 @@
 import unittest
 
-from adbtouch.paths import drop_specks, join_strokes, stroke_length, tidy
+from mthread.paths import drop_specks, join_strokes, stroke_length, tidy
 
 
 class LengthTests(unittest.TestCase):

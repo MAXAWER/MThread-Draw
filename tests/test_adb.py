@@ -7,8 +7,8 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from adbtouch.adb import bundled_candidates, find_adb, run_adb
-from adbtouch.errors import AdbCommandError, AdbNotFoundError
+from mthread.adb import bundled_candidates, find_adb, run_adb
+from mthread.errors import AdbCommandError, AdbNotFoundError
 
 IS_WINDOWS = sys.platform.startswith("win")
 
@@ -73,13 +73,13 @@ class FindAdbTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             fake = make_fake_adb(Path(tmp))
             with mock.patch.dict(os.environ, {}, clear=True), \
-                 mock.patch("adbtouch.adb.shutil.which", return_value=str(fake)):
+                 mock.patch("mthread.adb.shutil.which", return_value=str(fake)):
                 self.assertSamePath(find_adb(), fake)
 
     def test_missing_binary_raises_with_guidance(self):
         with mock.patch.dict(os.environ, {}, clear=True), \
-             mock.patch("adbtouch.adb.shutil.which", return_value=None), \
-             mock.patch("adbtouch.adb.os.path.isfile", return_value=False):
+             mock.patch("mthread.adb.shutil.which", return_value=None), \
+             mock.patch("mthread.adb.os.path.isfile", return_value=False):
             with self.assertRaises(AdbNotFoundError) as ctx:
                 find_adb()
         self.assertIn("ADB_PATH", str(ctx.exception))
@@ -94,8 +94,8 @@ class FindAdbTests(unittest.TestCase):
             # Android SDK installed in its default location - every macOS CI
             # runner, for one - would find a real adb there and never raise.
             with mock.patch.dict(os.environ, {}, clear=True), \
-                 mock.patch("adbtouch.adb.shutil.which", return_value=None), \
-                 mock.patch.dict("adbtouch.adb._FALLBACKS", {"win32": [], "darwin": [], "linux": []}):
+                 mock.patch("mthread.adb.shutil.which", return_value=None), \
+                 mock.patch.dict("mthread.adb._FALLBACKS", {"win32": [], "darwin": [], "linux": []}):
                 with self.assertRaises(AdbNotFoundError):
                     find_adb(str(plain))
 
@@ -126,9 +126,9 @@ class BundledAdbTests(unittest.TestCase):
             fake.write_text("not a real adb")
             fake.chmod(fake.stat().st_mode | stat.S_IEXEC)
             with mock.patch.dict(os.environ, {}, clear=True), \
-                 mock.patch("adbtouch.adb.shutil.which", return_value=None), \
-                 mock.patch("adbtouch.adb.Path.cwd", return_value=Path(tmp)), \
-                 mock.patch.dict("adbtouch.adb._FALLBACKS", {"win32": [], "darwin": [], "linux": []}):
+                 mock.patch("mthread.adb.shutil.which", return_value=None), \
+                 mock.patch("mthread.adb.Path.cwd", return_value=Path(tmp)), \
+                 mock.patch.dict("mthread.adb._FALLBACKS", {"win32": [], "darwin": [], "linux": []}):
                 self.assertEqual(Path(find_adb()).resolve(), fake.resolve())
 
     def test_bundled_copy_beats_whatever_is_on_path(self):
@@ -136,8 +136,8 @@ class BundledAdbTests(unittest.TestCase):
             bundled = make_fake_adb(Path(tmp))
             elsewhere = make_fake_adb(Path(tempfile.mkdtemp()))
             with mock.patch.dict(os.environ, {}, clear=True), \
-                 mock.patch("adbtouch.adb.bundled_candidates", return_value=[str(bundled)]), \
-                 mock.patch("adbtouch.adb.shutil.which", return_value=str(elsewhere)):
+                 mock.patch("mthread.adb.bundled_candidates", return_value=[str(bundled)]), \
+                 mock.patch("mthread.adb.shutil.which", return_value=str(elsewhere)):
                 self.assertEqual(Path(find_adb()).resolve(), bundled.resolve())
 
 
