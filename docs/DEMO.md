@@ -5,12 +5,14 @@ hand:
 
 ```bash
 pip install -e ".[draw]"
-python tools/make_sample.py examples/sample.png   # the line-art cat
-python tools/make_demo.py                          # -> docs/demo.gif, docs/pipeline.png
+python tools/make_sample.py examples/castle.png              # the colour landscape
+python tools/make_demo.py --sensitivity 3 --detail 8         # -> docs/demo.gif, docs/pipeline.png
 ```
 
-`tools/make_demo.py` runs the real `Vectorizer` and animates the paths it
-produces, in the order the device receives them. Point it at any image:
+`tools/make_sample.py` draws the sample scene from scratch, so the repository owns
+its demo art with no licence to track. `tools/make_demo.py` then runs the real
+`Vectorizer` over it and animates the paths it produces, in the order the device
+receives them. Point it at any image:
 
 ```bash
 python tools/make_demo.py path/to/your.png --out docs

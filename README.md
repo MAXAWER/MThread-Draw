@@ -14,11 +14,11 @@
 </p>
 
 <p align="center">
-  <img src="docs/demo.gif" width="300" alt="An image being traced into touch strokes and drawn on a phone screen">
+  <img src="docs/demo.gif" width="900" alt="A colour landscape being traced into touch strokes and drawn on a phone screen">
 </p>
 
 <p align="center">
-  <sub>38 strokes, 950 touch points — the exact path list <code>adbtouch</code> sends to the device, animated in the order it draws them.<br>
+  <sub>An ordinary colour PNG in, 215 strokes and 1,542 touch points out — the exact path list <code>adbtouch</code> sends to the device, in the order it draws them.<br>
   Rendered from a real run of the vectoriser by <a href="tools/make_demo.py"><code>tools/make_demo.py</code></a>; playback speed here is arbitrary.</sub>
 </p>
 
@@ -58,12 +58,16 @@ Device().draw_paths([[(100, 200), (400, 200), (400, 600)]])
   <img src="docs/pipeline.png" width="900" alt="Source image, detected edges, and the resulting stroke paths">
 </p>
 
-Feed it an ordinary picture. Edges are detected with Canny, contours are traced,
-retraced double lines are collapsed, and what is left is a list of polylines.
+Feed it an ordinary picture — colour, no preparation. Edges are detected with
+Canny, contours are traced, retraced double lines are collapsed, and what is left
+is a list of polylines. The scene above is `examples/castle.png`; nothing about it
+was drawn as line art first.
 
-Line art works best. A photo gives you its edges, which is usually not what you
-wanted — the *Edge sensitivity* and *Detail* sliders are there to tune that, and
-an optional background remover (`rembg`) helps with portraits and product shots.
+Colour is what gets lost: a finger draws one black line, so the output is always
+a line drawing. Illustrations and line art come out closest to the original,
+photographs come out as their edges — the *Edge sensitivity* and *Detail* sliders
+decide how much detail survives, and an optional background remover (`rembg`)
+helps with portraits and product shots.
 
 ---
 
@@ -284,12 +288,15 @@ autodraw
 
 ## Как картинка превращается в касания
 
-Подаёте обычное изображение. Границы находятся детектором Кэнни, контуры
-трассируются, двойные обводки схлопываются — на выходе список ломаных линий.
+Подаёте обычное цветное изображение, ничего готовить заранее не нужно. Границы
+находятся детектором Кэнни, контуры трассируются, двойные обводки схлопываются —
+на выходе список ломаных линий. Пейзаж выше это `examples/castle.png`, он не был
+контурным рисунком.
 
-Лучше всего работает контурный рисунок. Из фотографии получатся её границы, что
-обычно не то, чего хотелось: ползунки *Edge sensitivity* и *Detail* как раз для
-настройки, а опциональное удаление фона (`rembg`) помогает с портретами и
+Теряется цвет: палец рисует одну чёрную линию, поэтому результат всегда штриховой.
+Ближе всего к оригиналу выходят иллюстрации и контурные рисунки, из фотографии
+получатся её границы. Ползунки *Edge sensitivity* и *Detail* решают, сколько
+деталей останется, а опциональное удаление фона (`rembg`) помогает с портретами и
 предметной съёмкой.
 
 ## С чем работает
