@@ -5,7 +5,7 @@ using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Windows.Storage.Pickers;
 
-namespace AutoDraw;
+namespace MThreadDraw;
 
 public sealed partial class MainWindow : Window
 {
@@ -268,7 +268,7 @@ public sealed partial class MainWindow : Window
     {
         // Copied first: the engine overwrites this file on every preview, and a
         // BitmapImage bound straight to it would hold the file open.
-        var copy = Path.Combine(Path.GetTempPath(), $"autodraw_preview_{Guid.NewGuid():N}.png");
+        var copy = Path.Combine(Path.GetTempPath(), $"mthread_draw_preview_{Guid.NewGuid():N}.png");
         File.Copy(path, copy, overwrite: true);
         PreviewImage.Source = new BitmapImage(new Uri(copy));
     }

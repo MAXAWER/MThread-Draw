@@ -1,4 +1,4 @@
-package com.adbtouch;
+package com.mthread;
 
 import android.os.SystemClock;
 import android.view.InputDevice;

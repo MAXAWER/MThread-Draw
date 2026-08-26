@@ -6,8 +6,8 @@ including bug reports from phones we cannot test on ourselves.
 ## Getting set up
 
 ```bash
-git clone https://github.com/MAXAWER/AutoDraw-Sim.git
-cd AutoDraw-Sim
+git clone https://github.com/MAXAWER/MThread-Draw.git
+cd MThread-Draw
 python -m pip install -e ".[gui,dev]"
 python -m unittest discover -s tests
 ```
@@ -20,18 +20,18 @@ plain unit tests that run in under a second.
 
 | Path | What lives there |
 | --- | --- |
-| `adbtouch/` | The library: device control, touch events, recording, replay. No GUI imports. |
-| `adbtouch/touch.py` | Input-event codes and the display-to-digitizer coordinate mapping. |
-| `adbtouch/recorder.py` | Parsing `getevent -t` output into a session. |
-| `adbtouch/player.py` | Turning a session back into a timed shell script. |
-| `adbtouch/vectorize.py` | Image to stroke paths. The only module that needs OpenCV. |
-| `autodraw/` | The desktop app. Keep logic out of here; put it in the library with a test. |
+| `mthread/` | The library: device control, touch events, recording, replay. No GUI imports. |
+| `mthread/touch.py` | Input-event codes and the display-to-digitizer coordinate mapping. |
+| `mthread/recorder.py` | Parsing `getevent -t` output into a session. |
+| `mthread/player.py` | Turning a session back into a timed shell script. |
+| `mthread/vectorize.py` | Image to stroke paths. The only module that needs OpenCV. |
+| `mthread_draw/` | The desktop app. Keep logic out of here; put it in the library with a test. |
 | `tests/` | Unit tests, standard library `unittest`, no pytest required. |
 
 ## Ground rules
 
 - The library must keep working without OpenCV installed. Recording and replay
-  are stdlib-only on purpose, so `pip install adbtouch` stays lightweight.
+  are stdlib-only on purpose, so `pip install mthread` stays lightweight.
 - Anything that can be tested without a phone should be. If you find yourself
   unable to test a change, that usually means the logic wants pulling out of the
   hardware path.
@@ -41,14 +41,14 @@ plain unit tests that run in under a second.
 
 ## Good first issues
 
-Look for the [`good first issue`](https://github.com/MAXAWER/AutoDraw-Sim/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
+Look for the [`good first issue`](https://github.com/MAXAWER/MThread-Draw/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
 label. If none are open and you want something to do, the open ends listed at the
 bottom of the README are all fair game.
 
 ## Reporting a device
 
 If drawing lands in the wrong place on your phone, that is useful data. Open a
-Device report issue with the output of `adbtouch info` - it prints the digitizer
+Device report issue with the output of `mthread info` - it prints the digitizer
 ranges we need to see.
 
 ## Licensing of contributions

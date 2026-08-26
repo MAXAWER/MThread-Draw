@@ -27,8 +27,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from adbtouch import Device, list_devices  # noqa: E402
-from adbtouch.errors import AdbTouchError  # noqa: E402
+from mthread import Device, list_devices  # noqa: E402
+from mthread.errors import MThreadError  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 DEFAULT_PORT = 8731
@@ -134,7 +134,7 @@ def main() -> int:
     try:
         device.shell("am", "start", "-a", "android.intent.action.VIEW", "-d", url)
         print(f"opened {url} on {device.serial} ({width}x{height})")
-    except AdbTouchError as exc:
+    except MThreadError as exc:
         print(f"could not open a browser on the device: {exc}", file=sys.stderr)
         print(f"open {url} there by hand instead", file=sys.stderr)
 
@@ -147,10 +147,10 @@ def main() -> int:
                                   human=args.hand, speed=args.speed, seed=1)
         print(f"drew {drawn} strokes; the counter on the canvas should agree")
         print("The rectangle should sit a tenth of the screen in from every edge and")
-        print("the cross dead centre. If it does not, start with `adbtouch info`.")
+        print("the cross dead centre. If it does not, start with `mthread info`.")
 
     if args.image:
-        from adbtouch.vectorize import VectorizeSettings, Vectorizer
+        from mthread.vectorize import VectorizeSettings, Vectorizer
 
         vectorizer = Vectorizer()
         vectorizer.load_image(args.image)

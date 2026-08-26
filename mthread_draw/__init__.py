@@ -1,4 +1,4 @@
-"""AutoDraw - a desktop front end for :mod:`adbtouch`.
+"""MThread Draw - a desktop front end for :mod:`mthread`.
 
 Draws images on an Android device and records / replays touch gestures.
 """

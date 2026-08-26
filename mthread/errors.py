@@ -1,17 +1,17 @@
-"""Exception types raised by :mod:`adbtouch`."""
+"""Exception types raised by :mod:`mthread`."""
 
-__all__ = ["AdbTouchError", "AdbNotFoundError", "AdbCommandError", "DeviceNotConnectedError", "TouchDeviceNotFoundError"]
+__all__ = ["MThreadError", "AdbNotFoundError", "AdbCommandError", "DeviceNotConnectedError", "TouchDeviceNotFoundError"]
 
 
-class AdbTouchError(Exception):
+class MThreadError(Exception):
     """Base class for every error raised by this library."""
 
 
-class AdbNotFoundError(AdbTouchError):
+class AdbNotFoundError(MThreadError):
     """The ``adb`` executable could not be located on this machine."""
 
 
-class AdbCommandError(AdbTouchError):
+class AdbCommandError(MThreadError):
     """An ``adb`` invocation exited with a non-zero status."""
 
     def __init__(self, args, returncode, stderr=""):
@@ -22,9 +22,9 @@ class AdbCommandError(AdbTouchError):
         super().__init__(f"adb {' '.join(self.args_list)} failed with code {returncode}{detail}")
 
 
-class DeviceNotConnectedError(AdbTouchError):
+class DeviceNotConnectedError(MThreadError):
     """An operation needed a device but none was attached."""
 
 
-class TouchDeviceNotFoundError(AdbTouchError):
+class TouchDeviceNotFoundError(MThreadError):
     """No touchscreen input device could be detected on the device."""

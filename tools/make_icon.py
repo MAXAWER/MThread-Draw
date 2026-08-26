@@ -61,16 +61,16 @@ def build() -> Image.Image:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--out", default="packaging", help="directory for autodraw.png and autodraw.ico")
+    parser.add_argument("--out", default="packaging", help="directory for mthreaddraw.png and mthreaddraw.ico")
     args = parser.parse_args()
 
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     icon = build()
 
-    icon.save(out / "autodraw.png")
-    icon.save(out / "autodraw.ico", sizes=Ico_SIZES)
-    print(f"wrote {out / 'autodraw.png'} and {out / 'autodraw.ico'}")
+    icon.save(out / "mthreaddraw.png")
+    icon.save(out / "mthreaddraw.ico", sizes=Ico_SIZES)
+    print(f"wrote {out / 'mthreaddraw.png'} and {out / 'mthreaddraw.ico'}")
     return 0
 
 

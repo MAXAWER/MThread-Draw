@@ -2,7 +2,7 @@ import unittest
 
 import numpy as np
 
-from adbtouch.trace import rank_strokes, thin, trace_skeleton
+from mthread.trace import rank_strokes, thin, trace_skeleton
 
 
 def bar(height=40, width=60, thickness=5):

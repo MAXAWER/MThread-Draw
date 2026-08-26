@@ -13,7 +13,7 @@ panels and we can only fix what we can see.
 
 **Does record and replay work?**
 
-**Output of `adbtouch info`**
+**Output of `mthread info`**
 
 ```
 paste here

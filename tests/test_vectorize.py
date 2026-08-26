@@ -3,7 +3,7 @@ import unittest
 import cv2
 import numpy as np
 
-from adbtouch.vectorize import VectorizeSettings, Vectorizer, dedupe_retrace
+from mthread.vectorize import VectorizeSettings, Vectorizer, dedupe_retrace
 
 
 def _contours(image):
@@ -99,7 +99,7 @@ class VectorizerTests(unittest.TestCase):
         _, deduped = self.vectorizer.process(settings)
         deduped_points = sum(len(p) for p in deduped)
 
-        import adbtouch.vectorize as module
+        import mthread.vectorize as module
         original = module.dedupe_retrace
         module.dedupe_retrace = lambda contour, **kwargs: contour
         try:

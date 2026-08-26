@@ -1,6 +1,6 @@
 using Microsoft.UI.Xaml;
 
-namespace AutoDraw;
+namespace MThreadDraw;
 
 public partial class App : Application
 {

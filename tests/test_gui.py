@@ -12,12 +12,12 @@ class GuiImportTests(unittest.TestCase):
     """The GUI needs a display to run, but it should at least import cleanly."""
 
     def test_app_class_is_importable(self):
-        from autodraw.app import App
+        from mthread_draw.app import App
 
         self.assertTrue(hasattr(App, "run"))
 
     def test_entry_point_exists(self):
-        from autodraw.app import main
+        from mthread_draw.app import main
 
         self.assertTrue(callable(main))
 

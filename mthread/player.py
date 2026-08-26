@@ -1,4 +1,4 @@
-"""Replaying a recorded :class:`~adbtouch.session.Session` back onto a device."""
+"""Replaying a recorded :class:`~mthread.session.Session` back onto a device."""
 
 from __future__ import annotations
 

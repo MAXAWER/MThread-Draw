@@ -1,4 +1,4 @@
-"""Command line front end: ``python -m adbtouch``."""
+"""Command line front end: ``python -m mthread``."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ import time
 
 from . import __version__
 from .device import Device, list_devices
-from .errors import AdbTouchError
+from .errors import MThreadError
 from .player import replay
 from .recorder import Recorder
 from .session import Session
@@ -89,8 +89,8 @@ def _cmd_play(args) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="adbtouch", description=__doc__)
-    parser.add_argument("--version", action="version", version=f"adbtouch {__version__}")
+    parser = argparse.ArgumentParser(prog="mthread", description=__doc__)
+    parser.add_argument("--version", action="version", version=f"mthread {__version__}")
     parser.add_argument("-s", "--serial", help="target device serial")
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -116,7 +116,7 @@ def main(argv=None) -> int:
     args = build_parser().parse_args(argv)
     try:
         return args.func(args)
-    except AdbTouchError as exc:
+    except MThreadError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
     except KeyboardInterrupt:

@@ -44,13 +44,13 @@ just that rectangle.
 
 A screen recording of an actual phone is better, and takes about five minutes.
 Mirror the device with [scrcpy](https://github.com/Genymobile/scrcpy), start
-`autodraw`, record the mirror window, then cut it down:
+`mthread_draw`, record the mirror window, then cut it down:
 
 ```bash
 # 1. Mirror the phone and record the window (scrcpy 2.x writes an mp4 directly)
 scrcpy --record demo.mp4 --max-size 720
 
-# 2. Draw something from AutoDraw while that runs, then stop scrcpy.
+# 2. Draw something from MThread Draw while that runs, then stop scrcpy.
 
 # 3. Trim to the interesting part and turn it into a GIF that is small enough
 #    for a README - two-pass, so the palette does not fall apart.

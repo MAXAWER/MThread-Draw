@@ -1,5 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
-"""PyInstaller build definition for the AutoDraw desktop app.
+"""PyInstaller build definition for the MThreadDraw desktop app.
 
 Used unchanged on all three platforms and both locally and in CI, so a release
 build is the same build a maintainer can reproduce:
@@ -29,25 +29,25 @@ IS_MAC = sys.platform == "darwin"
 VERSION = "1.1.0"
 
 datas = collect_data_files("customtkinter")
-datas += [(str(ROOT / "adbtouch" / "injector.jar"), "adbtouch")]
+datas += [(str(ROOT / "mthread" / "injector.jar"), "mthread")]
 
 platform_tools = ROOT / "platform-tools"
 if platform_tools.is_dir():
     datas += [(str(item), "platform-tools") for item in platform_tools.iterdir() if item.is_file()]
 else:
-    print("AutoDraw.spec: platform-tools not found - the app will need adb on PATH")
+    print("MThreadDraw.spec: platform-tools not found - the app will need adb on PATH")
 
-icon = str(ROOT / "packaging" / ("autodraw.ico" if IS_WINDOWS else "autodraw.png"))
+icon = str(ROOT / "packaging" / ("mthreaddraw.ico" if IS_WINDOWS else "mthreaddraw.png"))
 
 analysis = Analysis(
     [str(ROOT / "tools" / "pyinstaller_entry.py")],
     pathex=[str(ROOT)],
     binaries=[],
     datas=datas,
-    # adbtouch imports its vectoriser through __getattr__ so that the core
+    # mthread imports its vectoriser through __getattr__ so that the core
     # library stays dependency-free. PyInstaller cannot see through that, and
     # leaves the module out unless it is named here.
-    hiddenimports=["customtkinter", "adbtouch.vectorize"],
+    hiddenimports=["customtkinter", "mthread.vectorize"],
     hookspath=[],
     runtime_hooks=[],
     # rembg and its onnxruntime are optional and enormous; someone who wants
@@ -63,7 +63,7 @@ exe = EXE(
     analysis.scripts,
     [],
     exclude_binaries=True,
-    name="AutoDraw",
+    name="MThreadDraw",
     debug=False,
     strip=False,
     upx=False,
@@ -77,7 +77,7 @@ collected = COLLECT(
     analysis.datas,
     strip=False,
     upx=False,
-    name="AutoDraw",
+    name="MThreadDraw",
 )
 
 # The same engine again, as a console program the WinUI front end can launch.
@@ -87,7 +87,7 @@ engine_analysis = Analysis(
     pathex=[str(ROOT)],
     binaries=[],
     datas=datas,
-    hiddenimports=["customtkinter", "adbtouch.vectorize"],
+    hiddenimports=["customtkinter", "mthread.vectorize"],
     excludes=["rembg", "onnxruntime", "matplotlib", "pytest", "tkinter.test"],
     noarchive=False,
 )
@@ -97,7 +97,7 @@ engine_exe = EXE(
     engine_analysis.scripts,
     [],
     exclude_binaries=True,
-    name="autodraw-engine",
+    name="mthread-draw-engine",
     debug=False,
     strip=False,
     upx=False,
@@ -109,15 +109,15 @@ engine = COLLECT(
     engine_analysis.datas,
     strip=False,
     upx=False,
-    name="autodraw-engine",
+    name="mthread-draw-engine",
 )
 
 if IS_MAC:
     app = BUNDLE(
         collected,
-        name="AutoDraw.app",
+        name="MThreadDraw.app",
         icon=icon,
-        bundle_identifier="io.github.maxawer.autodraw",
+        bundle_identifier="io.github.maxawer.mthread_draw",
         version=VERSION,
         info_plist={
             "CFBundleShortVersionString": VERSION,
@@ -125,6 +125,6 @@ if IS_MAC:
             "NSHighResolutionCapable": True,
             # The app talks to a phone over USB; without this, macOS refuses
             # the connection instead of prompting.
-            "NSAppleEventsUsageDescription": "AutoDraw drives adb to reach your device.",
+            "NSAppleEventsUsageDescription": "MThreadDraw drives adb to reach your device.",
         },
     )

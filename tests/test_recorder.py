@@ -1,6 +1,6 @@
 import unittest
 
-from adbtouch.recorder import parse_getevent_line
+from mthread.recorder import parse_getevent_line
 
 
 class ParseGeteventLineTests(unittest.TestCase):

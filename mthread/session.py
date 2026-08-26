@@ -83,7 +83,7 @@ class Session:
         if version > SESSION_FORMAT_VERSION:
             raise ValueError(
                 f"This recording uses format version {version}, but this build only understands "
-                f"up to {SESSION_FORMAT_VERSION}. Update adbtouch to open it."
+                f"up to {SESSION_FORMAT_VERSION}. Update mthread to open it."
             )
         screen = data.get("screen_size")
         return cls(

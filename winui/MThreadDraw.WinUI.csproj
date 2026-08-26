@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-    A WinUI 3 front end for the AutoDraw engine.
+    A WinUI 3 front end for the MThread Draw engine.
 
     It draws the window and nothing else: tracing, ADB and touch injection all
     live in the Python engine, which this launches as a child process and talks
@@ -16,8 +16,8 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
     <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
-    <RootNamespace>AutoDraw</RootNamespace>
-    <AssemblyName>AutoDraw</AssemblyName>
+    <RootNamespace>MThreadDraw</RootNamespace>
+    <AssemblyName>MThreadDraw</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <Platforms>x64;ARM64</Platforms>
     <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
@@ -27,7 +27,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
-    <ApplicationIcon>..\packaging\autodraw.ico</ApplicationIcon>
+    <ApplicationIcon>..\packaging\mthreaddraw.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>

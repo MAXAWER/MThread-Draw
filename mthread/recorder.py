@@ -46,7 +46,7 @@ class Recorder:
     recording replayable regardless of how long the device had been up.
 
     Args:
-        device: A connected :class:`~adbtouch.device.Device`.
+        device: A connected :class:`~mthread.device.Device`.
         only_devices: Restrict capture to these ``/dev/input`` paths. Defaults to
             the detected touchscreen so stray button presses are not recorded.
         on_event: Optional callback invoked for every captured event, useful for
@@ -90,7 +90,7 @@ class Recorder:
         self.error = None
         self._stop.clear()
         self._process = self.device.stream_getevent()
-        self._thread = threading.Thread(target=self._pump, name="adbtouch-recorder", daemon=True)
+        self._thread = threading.Thread(target=self._pump, name="mthread-recorder", daemon=True)
         self._thread.start()
 
     def _pump(self) -> None:

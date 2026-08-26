@@ -1,7 +1,7 @@
 """Draw the sample image used by the README demo.
 
 Deliberately an ordinary colour illustration rather than clean black line art:
-the point of the demo is that you feed AutoDraw a normal picture and it works
+the point of the demo is that you feed MThread Draw a normal picture and it works
 out the strokes itself. It is also busy on purpose - towers, crenellations,
 bridge arches, a treeline - because a demo that only ever draws a smiley says
 nothing about what the vectoriser does with real detail.

@@ -26,16 +26,16 @@ generating the copy, and point them at `TERMS.md`. Running a modified version as
 a hosted service carries the same obligation to publish.
 
 Requests go to an issue titled "Licence request" at
-<https://github.com/MAXAWER/AutoDraw-Sim/issues>.
+<https://github.com/MAXAWER/MThread-Draw/issues>.
 
 ## What this project is
 
 Two pieces that ship together:
 
-- **`adbtouch`** — a Python library for synthetic touch input on Android over
+- **`mthread`** — a Python library for synthetic touch input on Android over
   ADB: tracing an image into strokes, drawing them, recording and replaying
   gestures.
-- **`AutoDraw`** — a desktop app on top of it.
+- **`MThread Draw`** — a desktop app on top of it.
 
 ## How it draws, which is the part that surprises people
 
@@ -47,7 +47,7 @@ There are three paths into a device, picked automatically by
    says, and `sendevent` then fails per line while the script exits cleanly.
    `Device.supports_raw_touch` probes for it.
 2. **`injector`** — a 3 KB jar (`injector/`, built by
-   `tools/build_injector.py` into `adbtouch/injector.jar`) run once through
+   `tools/build_injector.py` into `mthread/injector.jar`) run once through
    `app_process` and fed points over stdin. This is the path that works
    everywhere and the only one where the time between points is ours, which is
    what makes both instant drawing and hand-like drawing possible.

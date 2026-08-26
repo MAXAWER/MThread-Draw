@@ -148,7 +148,7 @@ class Device:
         directory and the remote name is unique, so concurrent runs never clash.
         """
         body = "#!/system/bin/sh\n" + "\n".join(lines) + "\n"
-        remote = f"{REMOTE_TMP}/adbtouch_{uuid.uuid4().hex}.sh"
+        remote = f"{REMOTE_TMP}/mthread_{uuid.uuid4().hex}.sh"
 
         handle = tempfile.NamedTemporaryFile("w", suffix=".sh", newline="\n", delete=False, encoding="utf-8")
         try:
@@ -251,15 +251,15 @@ class Device:
                 a tenth of a second per point whatever happens - but it does let
                 either path be slowed to something a person could have done.
             human: 0 draws the geometry exactly. Above 0 hands the paths to
-                :func:`adbtouch.hand.simulate`, which rounds the corners, varies
+                :func:`mthread.hand.simulate`, which rounds the corners, varies
                 the pen speed, adds tremor, overshoots the ends and reorders the
                 strokes into the sequence a person would use. 1.0 is a steady
                 hand, 3.0 a careless one. Note that it changes the point count,
                 and so the time the drawing takes.
             hand_settings: Full control over the simulation; see
-                :class:`adbtouch.hand.HandSettings`.
+                :class:`mthread.hand.HandSettings`.
             pacing: Timing for the injector path; see
-                :class:`adbtouch.injector.Pacing`. Defaults to hand speed when
+                :class:`mthread.injector.Pacing`. Defaults to hand speed when
                 *human* is set and to as-fast-as-possible when it is not.
             seed: Fixes the randomness, so a "human" drawing can be repeated.
             progress: Called with ``(done, total)`` as strokes are sent.

@@ -1,7 +1,7 @@
 import unittest
 
-from adbtouch.player import build_replay_script, iter_replay_chunks, replay
-from adbtouch.session import InputEvent, Session
+from mthread.player import build_replay_script, iter_replay_chunks, replay
+from mthread.session import InputEvent, Session
 
 
 def events(*times):

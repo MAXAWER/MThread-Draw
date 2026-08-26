@@ -5,7 +5,7 @@ finds them itself if ANDROID_HOME or the usual per-platform location is set.
 
     python tools/build_injector.py
 
-The result is adbtouch/injector.jar - a zip containing classes.dex, which is all
+The result is mthread/injector.jar - a zip containing classes.dex, which is all
 app_process needs. It lives inside the package so that a wheel and a frozen
 build both carry it, and it is small enough (a few kilobytes) to be committed,
 so nobody needs an Android SDK just to use the library.
@@ -22,8 +22,8 @@ import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SOURCE = ROOT / "injector" / "src" / "com" / "adbtouch" / "Injector.java"
-OUT_JAR = ROOT / "adbtouch" / "injector.jar"
+SOURCE = ROOT / "injector" / "src" / "com" / "mthread" / "Injector.java"
+OUT_JAR = ROOT / "mthread" / "injector.jar"
 WORK = ROOT / "build" / "injector"
 
 IS_WINDOWS = sys.platform.startswith("win")

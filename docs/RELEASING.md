@@ -2,8 +2,8 @@
 
 ## Cutting a release
 
-1. Bump the version in `pyproject.toml`, `adbtouch/__init__.py` and
-   `autodraw/__init__.py` — all three carry the same number.
+1. Bump the version in `pyproject.toml`, `mthread/__init__.py` and
+   `mthread_draw/__init__.py` — all three carry the same number.
 2. Add a section to [`CHANGELOG.md`](../CHANGELOG.md).
 3. Commit, then tag and push:
 
@@ -16,9 +16,9 @@
 
 | Artifact | Built on |
 |---|---|
-| `AutoDraw-<version>-x64.msi`, and the same app as a `.zip` | windows-latest |
-| `AutoDraw-<version>-arm64.dmg` | macos-latest |
-| `AutoDraw-<version>-x64.dmg` | macos-13 |
+| `MThread Draw-<version>-x64.msi`, and the same app as a `.zip` | windows-latest |
+| `MThread Draw-<version>-arm64.dmg` | macos-latest |
+| `MThread Draw-<version>-x64.dmg` | macos-13 |
 | sdist and wheel | ubuntu-latest |
 
 Tags must start with `v`. Anything else is ignored by the workflow. The same
@@ -29,7 +29,7 @@ you are not developing on.
 ## The Windows front end
 
 `winui/` is a WinUI 3 application that draws the window and nothing else. It
-launches the engine - `autodraw.server`, the same one every platform uses - as a
+launches the engine - `mthread_draw.server`, the same one every platform uses - as a
 child process and speaks JSON lines to it over a pipe. That is what keeps one
 implementation of tracing, ADB and touch injection rather than two.
 
@@ -62,10 +62,10 @@ python tools/build_app.py --dmg        # macOS
 python tools/build_app.py --archive    # a plain zip / tar.gz anywhere
 ```
 
-Each build runs the packaged app's own self-test (`AutoDraw --selftest`) before
+Each build runs the packaged app's own self-test (`MThread Draw --selftest`) before
 it is considered finished: it imports the whole application and resolves and
 runs the bundled adb. An incomplete bundle fails the build instead of failing on
-a user's desktop - which is how `adbtouch.vectorize`, imported lazily through
+a user's desktop - which is how `mthread.vectorize`, imported lazily through
 `__getattr__` and therefore invisible to PyInstaller, was once left out.
 
 ### WiX
@@ -82,7 +82,7 @@ Fee licence, which is not something a build script can do unattended.
 ## The bundled adb
 
 The installers carry Google's `adb` inside them, fetched at build time by
-`tools/fetch_platform_tools.py`, so that installing AutoDraw installs
+`tools/fetch_platform_tools.py`, so that installing MThread Draw installs
 everything. Two things worth knowing:
 
 - platform-tools is published under the Android Software Development Kit
@@ -91,7 +91,7 @@ everything. Two things worth knowing:
   binary for that reason. To ship without it, build with `--no-adb`; the app
   then falls back to whatever adb the machine has, exactly like a source
   checkout.
-- The bundled copy outranks `PATH`, so an installed AutoDraw behaves the same on
+- The bundled copy outranks `PATH`, so an installed MThread Draw behaves the same on
   every machine.
 
 ## Code signing
@@ -109,7 +109,7 @@ credentials for. Once:
 
 1. Create a pending publisher at
    <https://pypi.org/manage/account/publishing/> for the project name
-   `adbtouch`, owner `MAXAWER`, repository `AutoDraw-Sim`, workflow
+   `mthread`, owner `MAXAWER`, repository `MThread-Draw`, workflow
    `release.yml`, environment `pypi`.
 2. Create the `pypi` environment under **Settings → Environments**.
 3. Set the repository variable `PUBLISH_TO_PYPI` to `true` under
@@ -120,12 +120,12 @@ After that every `v*` tag publishes. No API token is stored anywhere.
 Once the first upload lands, the install line in the README can become:
 
 ```bash
-pip install adbtouch          # library
-pip install "adbtouch[gui]"   # + the desktop app
+pip install mthread          # library
+pip install "mthread-draw[gui]"   # + the desktop app
 ```
 
 ## Version numbers
 
-`adbtouch` and `AutoDraw` ship together and share one version. The tag `v1.0`
+`mthread` and `MThread Draw` ship together and share one version. The tag `v1.0`
 predates the rewrite and belongs to the old ADB Painter build, so releases
 continue from `1.1.0` rather than restarting.
