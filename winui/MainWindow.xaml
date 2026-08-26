@@ -8,15 +8,32 @@
     mc:Ignorable="d"
     Title="MThread Draw">
 
-    <Grid RowDefinitions="Auto,*,Auto" ColumnDefinitions="340,*">
+    <Grid RowDefinitions="44,Auto,*,Auto" ColumnDefinitions="340,*">
 
-        <!-- Device bar, across the top: nothing else can be done until this is settled. -->
-        <Border Grid.Row="0" Grid.ColumnSpan="2" Padding="16,12"
+        <!--
+            The title bar is ours, not the system's.
+
+            Left as it came, the window carried two copies of its own name: one
+            in the system caption and one in the toolbar underneath it, with a
+            grey strip between them doing nothing. Extending the content into
+            the caption removes the strip; the name then only needs saying once,
+            next to the same mark the icon uses.
+        -->
+        <Grid x:Name="AppTitleBar" Grid.Row="0" Grid.ColumnSpan="2" Padding="14,0,0,0">
+            <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                <Border Width="24" Height="24" CornerRadius="6" Background="#11121A">
+                    <Ellipse Width="13" Height="13" Fill="White"/>
+                </Border>
+                <TextBlock Text="MThread Draw" FontSize="13" VerticalAlignment="Center" Opacity="0.85"/>
+            </StackPanel>
+        </Grid>
+
+        <!-- Device bar: nothing else can be done until this is settled. -->
+        <Border Grid.Row="1" Grid.ColumnSpan="2" Padding="16,12"
                 Background="{ThemeResource LayerFillColorDefaultBrush}"
-                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,0,0,1">
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,1,0,1">
             <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-                <TextBlock Text="MThread Draw" FontSize="20" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                <ComboBox x:Name="DeviceBox" MinWidth="220" PlaceholderText="No device found"
+                <ComboBox x:Name="DeviceBox" MinWidth="260" PlaceholderText="Looking for a device…"
                           VerticalAlignment="Center"/>
                 <Button x:Name="RefreshButton" Content="Refresh" Click="OnRefreshDevices"/>
                 <Button x:Name="ConnectButton" Content="Connect" Style="{StaticResource AccentButtonStyle}"
@@ -27,7 +44,7 @@
         </Border>
 
         <!-- Controls -->
-        <ScrollViewer Grid.Row="1" Grid.Column="0" Padding="16,16,8,16">
+        <ScrollViewer Grid.Row="2" Grid.Column="0" Padding="16,16,8,16">
             <StackPanel Spacing="6">
 
                 <Button x:Name="LoadButton" Content="Load image…" HorizontalAlignment="Stretch"
@@ -76,7 +93,7 @@
         </ScrollViewer>
 
         <!-- Preview -->
-        <Border Grid.Row="1" Grid.Column="1" Margin="8,16,16,16" CornerRadius="8"
+        <Border Grid.Row="2" Grid.Column="1" Margin="8,16,16,16" CornerRadius="8"
                 Background="{ThemeResource SolidBackgroundFillColorBaseBrush}"
                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
             <Grid>
@@ -89,7 +106,7 @@
         </Border>
 
         <!-- Status bar -->
-        <Border Grid.Row="2" Grid.ColumnSpan="2" Padding="16,10"
+        <Border Grid.Row="3" Grid.ColumnSpan="2" Padding="16,10"
                 Background="{ThemeResource LayerFillColorDefaultBrush}"
                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,1,0,0">
             <Grid ColumnDefinitions="*,220">

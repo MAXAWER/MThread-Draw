@@ -57,6 +57,32 @@ def list_devices(adb_path: str | None = None) -> list[DeviceInfo]:
     return devices
 
 
+def restart_server(adb_path: str | None = None) -> None:
+    """Stop and start the adb daemon.
+
+    The daemon can end up running but enumerating nothing - it was started
+    before the USB driver settled, or another copy of adb on the machine claimed
+    port 5037 first. ``adb devices`` then reports an empty list for a phone that
+    is plugged in and working, and no amount of asking again helps.
+
+    Only worth doing when the list came back empty: killing the daemon
+    disconnects anything else using it, Android Studio included.
+    """
+    adb = adb_path or find_adb()
+    run_adb(adb, ["kill-server"], check=False)
+    run_adb(adb, ["start-server"], check=False)
+
+
+def find_devices(adb_path: str | None = None) -> list[DeviceInfo]:
+    """List devices, reviving a wedged daemon once before giving up."""
+    adb = adb_path or find_adb()
+    devices = list_devices(adb)
+    if devices:
+        return devices
+    restart_server(adb)
+    return list_devices(adb)
+
+
 class Device:
     """A connected Android device.
 

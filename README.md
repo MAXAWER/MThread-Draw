@@ -1,8 +1,10 @@
-<h1 align="center">MThread Draw&nbsp;+&nbsp;mthread</h1>
+<p align="center">
+  <img src="docs/banner.gif" width="900" alt="MThread Draw — a cat's portrait assembling itself out of white touch points">
+</p>
 
 <p align="center">
-  <b>Draw any picture on an Android screen, and record and replay touch gestures.</b><br>
-  Over USB or wireless ADB. Nothing is installed on the phone.
+  <sub>Every white circle is one touch point, in the order it is sent to the phone. Nothing about that picture is illustrated:
+  it is a real <a href="tools/make_banner.py"><code>tools/make_banner.py</code></a> run over <code>examples/cat.jpg</code>.</sub>
 </p>
 
 <p align="center">
@@ -14,12 +16,12 @@
 </p>
 
 <p align="center">
-  <img src="docs/demo.gif" width="900" alt="A colour photograph of a cat being traced into touch strokes and drawn on a phone screen">
+  <img src="docs/demo.gif" width="900" alt="A colour photograph of a guitar being traced into touch strokes and drawn on a phone screen">
 </p>
 
 <p align="center">
-  <sub>An ordinary photograph in, 283 strokes and 1,528 touch points out: the exact path list <code>mthread</code> sends to the device, in the order it draws them.<br>
-  On a Pixel 8 Pro that draws in about five seconds. Rendered from a real run by <a href="tools/make_demo.py"><code>tools/make_demo.py</code></a>; playback speed here is arbitrary.</sub>
+  <sub>An ordinary photograph in, 57 strokes and 478 touch points out: the exact path list <code>mthread</code> sends to the device, in the order it draws them.<br>
+  On a Pixel 8 Pro that draws in under two seconds. Rendered from a real run by <a href="tools/make_demo.py"><code>tools/make_demo.py</code></a>; playback speed here is arbitrary.</sub>
 </p>
 
 ---

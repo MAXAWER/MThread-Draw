@@ -22,6 +22,12 @@ public sealed partial class MainWindow : Window
     {
         InitializeComponent();
 
+        // Draw into the caption instead of sitting under it. The system bar
+        // contributed a grey strip, a second copy of the window's name and
+        // nothing else; the caption buttons stay where Windows puts them.
+        ExtendsContentIntoTitleBar = true;
+        SetTitleBar(AppTitleBar);
+
         // The window does not know its DPI until it has been shown, and asking
         // sooner gets 96 and a window a third too small on a scaled display.
         var sized = false;
@@ -133,7 +139,11 @@ public sealed partial class MainWindow : Window
             }
             else
             {
-                StatusText.Text = "No device. Plug a phone in with USB debugging on, or run adb connect.";
+                // The engine restarts the adb daemon before reporting nothing,
+                // so by this point "none" means none rather than "the daemon
+                // has been sulking since before the cable went in".
+                StatusText.Text = "No device, and restarting adb did not find one. " +
+                                  "Check the cable, turn on USB debugging, and accept the prompt on the phone.";
             }
         }
         catch (EngineException error)

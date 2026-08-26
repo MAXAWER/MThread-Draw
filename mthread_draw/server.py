@@ -37,7 +37,7 @@ import time
 import traceback
 from pathlib import Path
 
-from mthread import Device, VectorizeSettings, Vectorizer, list_devices, simulate
+from mthread import Device, VectorizeSettings, Vectorizer, find_devices, simulate
 from mthread.errors import MThreadError
 
 from .geometry import fit_to_screen
@@ -67,7 +67,7 @@ class Engine:
     def op_devices(self) -> dict:
         return {"devices": [
             {"serial": d.serial, "state": d.state, "description": d.human_state}
-            for d in list_devices()
+            for d in find_devices()
         ]}
 
     def op_connect(self, serial: str | None = None) -> dict:
