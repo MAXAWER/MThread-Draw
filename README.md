@@ -8,7 +8,14 @@
 </p>
 
 <p align="center">
+  <a href="https://maxawer.github.io/MThread-Draw/"><img src="https://img.shields.io/badge/%E2%96%B6%20Trace%20one%20yourself-in%20your%20browser-0d1117?style=for-the-badge&labelColor=ffffff&color=0d1117" alt="Play it in your browser"></a>
+  <a href="https://github.com/MAXAWER/MThread-Draw/releases/latest"><img src="https://img.shields.io/badge/%E2%AC%87%20Download-Windows%20%C2%B7%20macOS-0d1117?style=for-the-badge" alt="Download"></a>
+</p>
+
+<p align="center">
   <a href="https://github.com/MAXAWER/MThread-Draw/actions/workflows/ci.yml"><img src="https://github.com/MAXAWER/MThread-Draw/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/MAXAWER/MThread-Draw/releases/latest"><img src="https://img.shields.io/github/v/release/MAXAWER/MThread-Draw?include_prereleases&label=release&color=blue" alt="Latest release"></a>
+  <a href="https://github.com/MAXAWER/MThread-Draw/releases"><img src="https://img.shields.io/github/downloads/MAXAWER/MThread-Draw/total?label=downloads&color=blue" alt="Downloads"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/licence-AGPL--3.0-blue" alt="Licence: AGPL-3.0"></a>
   <img src="https://img.shields.io/badge/python-3.9%2B-blue" alt="Python 3.9+">
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey" alt="Windows | macOS | Linux">
@@ -40,6 +47,17 @@
 > лицензия. Подробно: [TERMS.md](TERMS.md).
 
 ---
+
+## Try it before you install it
+
+**[maxawer.github.io/MThread-Draw](https://maxawer.github.io/MThread-Draw/)** puts
+three of these drawings in your browser and asks you to trace one by hand. The
+lines are not a mock-up: they are the exact strokes this program sends to a
+phone, exported from a real run over the photographs in [`examples/`](examples/),
+and the time to beat is the time the program takes.
+
+A guitar is 294 points and lands in about a second. Tracing it yourself takes
+most people twenty.
 
 ## Get it
 
@@ -96,6 +114,32 @@ Neither wins everywhere, which is why both are still here. There is also an
 opt-in third method, `method="neural"`, which asks a trained model which edges
 matter; it needs a 46 MB download and a few seconds, and it is better than both
 on some photographs and worse than both on grainy ones.
+
+<details>
+<summary><b>The whole path, from a JPEG to a finger on the glass</b></summary>
+
+```mermaid
+flowchart LR
+  A["photograph"] --> B["tracer<br/>Canny or flow"]
+  B --> C["thin to one pixel"]
+  C --> D["walk each line<br/>into one stroke"]
+  D --> E["join, simplify,<br/>drop specks"]
+  E --> F{"how should<br/>it draw?"}
+  F -->|instantly| G["1 ms a point"]
+  F -->|like a hand| H["rounded corners,<br/>velocity, tremor"]
+  G --> I{"does the device<br/>allow raw touch?"}
+  H --> I
+  I -->|yes| J["sendevent<br/>into /dev/input"]
+  I -->|no| K["injector jar<br/>through app_process"]
+  J --> L["the phone draws"]
+  K --> L
+```
+
+Every box is a module: `mthread.vectorize`, `mthread.trace`, `mthread.paths`,
+`mthread.hand`, `mthread.injector`. The branch at the bottom is the one that
+matters in practice — see [Why this exists](#why-this-exists).
+
+</details>
 
 ### The same pipeline, four photographs
 
