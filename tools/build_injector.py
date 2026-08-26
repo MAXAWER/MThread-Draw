@@ -22,7 +22,10 @@ import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SOURCE = ROOT / "injector" / "src" / "com" / "mthread" / "Injector.java"
+#: Every source under injector/src. Two classes share the jar: the touch
+#: injector and the screen mirror, both of which have to be on the device
+#: and both of which are a few kilobytes.
+SOURCES = sorted((ROOT / "injector" / "src").rglob("*.java"))
 OUT_JAR = ROOT / "mthread" / "injector.jar"
 WORK = ROOT / "build" / "injector"
 
@@ -95,7 +98,7 @@ def main() -> int:
     subprocess.run(
         [find_javac(), "-source", "8", "-target", "8", "-nowarn",
          "-bootclasspath", str(android_jar), "-classpath", str(android_jar),
-         "-d", str(classes), str(SOURCE)],
+         "-d", str(classes), *[str(source) for source in SOURCES]],
         check=True,
     )
 

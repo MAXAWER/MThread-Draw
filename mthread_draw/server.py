@@ -37,10 +37,17 @@ import time
 import traceback
 from pathlib import Path
 
+from PIL import Image, ImageDraw
+
 from mthread import Device, VectorizeSettings, Vectorizer, find_devices, simulate
+from mthread.mirror import ScreenMirror
 from mthread.errors import MThreadError
 
 from .geometry import fit_to_screen
+
+#: Width of the placement overlay. It is stretched over the mirror by the
+#: front end, so it only has to be fine enough to read, not full resolution.
+OVERLAY_WIDTH = 540
 
 
 class Engine:
@@ -53,6 +60,10 @@ class Engine:
         self.paths: list = []
         self.cancel = threading.Event()
         self.worker: threading.Thread | None = None
+        self.drawing = threading.Event()
+        self.mirror: ScreenMirror | None = None
+        self.mirror_thread: threading.Thread | None = None
+        self.mirror_stop: threading.Event | None = None
 
     # ---------------------------------------------------------------- talking
 
@@ -86,12 +97,64 @@ class Engine:
         self.device.screenshot(str(path))
         return {"path": str(path)}
 
+    # -------------------------------------------------------------- mirroring
+
+    def op_mirror(self, on: bool = True, max_width: int = 520,
+                  quality: int = 60) -> dict:
+        """Start or stop the live view of the device screen.
+
+        Frames are written to two files in turn and announced as events. Two,
+        because a front end that has just been handed a path may still have the
+        file open when the next frame is ready, and one file would mean either a
+        torn image or a failed write.
+        """
+        self._stop_mirror()
+        if not on:
+            return {"mirroring": False}
+
+        self._require_device()
+        self.mirror = ScreenMirror(self.device, max_width=max_width, quality=quality)
+        self.mirror.start()
+        self.mirror_stop = threading.Event()
+        self.mirror_thread = threading.Thread(target=self._mirror_loop, daemon=True)
+        self.mirror_thread.start()
+
+        width, height = self.device.screen_size
+        return {"mirroring": True, "width": width, "height": height}
+
+    def _mirror_loop(self) -> None:
+        slot = 0
+        while not self.mirror_stop.is_set():
+            if self.drawing.is_set():
+                # Capturing costs the device real work, and it is competing with
+                # the drawing for it. The view resumes when the stroke is done.
+                self.mirror_stop.wait(0.2)
+                continue
+            try:
+                jpeg = self.mirror.frame()
+            except Exception as error:
+                self.event("mirror_lost", error=str(error))
+                return
+            slot = 1 - slot
+            path = Path(tempfile.gettempdir()) / f"mthread_draw_frame_{slot}.jpg"
+            path.write_bytes(jpeg)
+            self.event("frame", path=str(path))
+
+    def _stop_mirror(self) -> None:
+        if self.mirror_stop is not None:
+            self.mirror_stop.set()
+        if self.mirror_thread is not None:
+            self.mirror_thread.join(timeout=5)
+        if self.mirror is not None:
+            self.mirror.close()
+        self.mirror = self.mirror_thread = self.mirror_stop = None
+
     def op_load_image(self, path: str) -> dict:
         image = self.vectorizer.load_image(path)
         return {"width": int(image.shape[1]), "height": int(image.shape[0])}
 
     def op_preview(self, sensitivity: float = 5, detail: float = 7,
-                   method: str = "canny") -> dict:
+                   method: str = "canny", margin: float = 0.06) -> dict:
         started = time.perf_counter()
         settings = VectorizeSettings.from_sliders(sensitivity, detail, method=method)
         preview, paths = self.vectorizer.process(settings)
@@ -101,10 +164,37 @@ class Engine:
         preview.save(path)
         return {
             "path": str(path),
+            "overlay": self._overlay(margin),
             "strokes": len(paths),
             "points": sum(len(p) for p in paths),
             "seconds": round(time.perf_counter() - started, 2),
         }
+
+    def _overlay(self, margin: float) -> str | None:
+        """The strokes where they will actually land, on a transparent ground.
+
+        A preview beside the phone tells you what will be drawn; a preview lying
+        on top of the phone tells you where. The second is the one people
+        actually want, and it costs nothing extra - the placement is the same
+        call the drawing itself makes.
+        """
+        if self.device is None or not self.paths:
+            return None
+
+        width, height = self.device.screen_size
+        placed = fit_to_screen(self.paths, width, height, margin=margin)
+
+        scale = OVERLAY_WIDTH / width
+        image = Image.new("RGBA", (OVERLAY_WIDTH, round(height * scale)), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(image)
+        for stroke in placed:
+            if len(stroke) >= 2:
+                draw.line([(x * scale, y * scale) for x, y in stroke],
+                          fill=(255, 64, 58, 235), width=2, joint="curve")
+
+        path = Path(tempfile.gettempdir()) / "mthread_draw_overlay.png"
+        image.save(path)
+        return str(path)
 
     def op_estimate(self, speed: float = 1.0, human: float = 0.0) -> dict:
         self._require_device()
@@ -122,15 +212,19 @@ class Engine:
         width, height = self.device.screen_size
         placed = fit_to_screen(self.paths, width, height, margin=margin)
         self.cancel.clear()
+        self.drawing.set()
         self.status(f"Drawing {len(placed)} strokes")
 
-        drawn = self.device.draw_paths(
-            placed,
-            speed=speed,
-            human=human,
-            progress=lambda done, total: self.event("progress", done=done, total=total),
-            should_continue=lambda: not self.cancel.is_set(),
-        )
+        try:
+            drawn = self.device.draw_paths(
+                placed,
+                speed=speed,
+                human=human,
+                progress=lambda done, total: self.event("progress", done=done, total=total),
+                should_continue=lambda: not self.cancel.is_set(),
+            )
+        finally:
+            self.drawing.clear()
         return {"strokes": drawn, "stopped": self.cancel.is_set()}
 
     def op_stop(self) -> dict:
@@ -143,7 +237,7 @@ class Engine:
 
 
 #: Operations that may take a while, and so must not block the reader.
-SLOW = {"preview", "draw", "screenshot", "connect"}
+SLOW = {"preview", "draw", "screenshot", "connect", "mirror"}
 
 
 def serve(stdin=None, stdout=None) -> int:
