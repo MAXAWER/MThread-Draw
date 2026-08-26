@@ -18,8 +18,8 @@
 </p>
 
 <p align="center">
-  <sub>An ordinary colour PNG in, 215 strokes and 1,542 touch points out — the exact path list <code>adbtouch</code> sends to the device, in the order it draws them.<br>
-  Rendered from a real run of the vectoriser by <a href="tools/make_demo.py"><code>tools/make_demo.py</code></a>; playback speed here is arbitrary.</sub>
+  <sub>A photograph in — NASA's Endeavour on pad 39A — and 294 strokes, 2,327 touch points out: the exact path list <code>adbtouch</code> sends to the device, in the order it draws them.<br>
+  On a Pixel 8 Pro that draws in about five seconds. Rendered from a real run by <a href="tools/make_demo.py"><code>tools/make_demo.py</code></a>; playback speed here is arbitrary.</sub>
 </p>
 
 ---
@@ -84,10 +84,16 @@ Device().draw_paths([[(100, 200), (400, 200), (400, 600)]])
   <img src="docs/pipeline.png" width="900" alt="Source image, detected edges, and the resulting stroke paths">
 </p>
 
-Feed it an ordinary picture — colour, no preparation. Edges are detected with
-Canny, contours are traced, retraced double lines are collapsed, and what is left
-is a list of polylines. The scene above is `examples/castle.png`; nothing about it
-was drawn as line art first.
+Feed it an ordinary photograph. XDoG decides where the lines are, the result is
+thinned to one pixel of width, and each line is then walked into a single stroke
+— not an outline around it. The picture above is `examples/launchpad.jpg`,
+untouched.
+
+Canny, the obvious choice, is available as `method="canny"` and is the wrong one
+for photographs: it answers "where does brightness change", which on a photograph
+means every texture and every shadow, and it answers in outlines, so one line
+comes back as two. On this photograph it produced 715 strokes and 11,470 points
+of porridge where XDoG gives 294 strokes and 2,327 points that read as a drawing.
 
 Colour is what gets lost: a finger draws one black line, so the output is always
 a line drawing. Illustrations and line art come out closest to the original,

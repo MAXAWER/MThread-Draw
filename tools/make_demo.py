@@ -20,17 +20,31 @@ from PIL import Image, ImageDraw, ImageFont
 
 from adbtouch.vectorize import VectorizeSettings, Vectorizer
 
-CANVAS_W, CANVAS_H = 990, 450
 MARGIN = 24
-
-SOURCE_BOX = (MARGIN, 92, 420, 300)          # x, y, w, h
-# The phone lies on its side: the sample is a landscape scene, and a wide
-# picture on a portrait screen would sit in a thin band in the middle.
-PHONE_X, PHONE_Y = 500, 66
-PHONE_W, PHONE_H = 466, 262
 BEZEL = 12
 CORNER = 26
 SCREEN_MARGIN = 14
+
+# The phone is held whichever way suits the picture, and everything else is
+# sized around that: a portrait photograph on a landscape screen ends up as a
+# postage stamp in the middle, which says nothing about the drawing.
+LANDSCAPE = dict(canvas=(990, 450), source=(MARGIN, 92, 420, 300),
+                 phone=(500, 66, 466, 262))
+PORTRAIT = dict(canvas=(900, 620), source=(MARGIN, 96, 360, 470),
+                phone=(470, 40, 300, 540))
+
+CANVAS_W, CANVAS_H = LANDSCAPE["canvas"]
+SOURCE_BOX = LANDSCAPE["source"]
+PHONE_X, PHONE_Y, PHONE_W, PHONE_H = LANDSCAPE["phone"]
+
+
+def use_layout(source) -> None:
+    """Pick the layout that suits the source image, before anything is drawn."""
+    global CANVAS_W, CANVAS_H, SOURCE_BOX, PHONE_X, PHONE_Y, PHONE_W, PHONE_H
+    layout = PORTRAIT if source.height > source.width else LANDSCAPE
+    CANVAS_W, CANVAS_H = layout["canvas"]
+    SOURCE_BOX = layout["source"]
+    PHONE_X, PHONE_Y, PHONE_W, PHONE_H = layout["phone"]
 
 FRAMES = 46
 HOLD_FRAMES = 12
@@ -108,11 +122,13 @@ def backdrop(source: Image.Image, stroke_count: int) -> Image.Image:
          (PHONE_X + PHONE_W - BEZEL - 1, PHONE_Y + PHONE_H - BEZEL - 1)],
         CORNER - 8, fill=SCREEN,
     )
-    draw.rounded_rectangle(
-        [(PHONE_X + PHONE_W - 11, PHONE_Y + PHONE_H // 2 - 24),
-         (PHONE_X + PHONE_W - 5, PHONE_Y + PHONE_H // 2 + 24)],
-        3, fill=(60, 62, 68),
-    )
+    if PHONE_W > PHONE_H:
+        speaker = [(PHONE_X + PHONE_W - 11, PHONE_Y + PHONE_H // 2 - 24),
+                   (PHONE_X + PHONE_W - 5, PHONE_Y + PHONE_H // 2 + 24)]
+    else:
+        speaker = [(PHONE_X + PHONE_W // 2 - 24, PHONE_Y + 5),
+                   (PHONE_X + PHONE_W // 2 + 24, PHONE_Y + 11)]
+    draw.rounded_rectangle(speaker, 3, fill=(60, 62, 68))
     return canvas
 
 
@@ -207,6 +223,7 @@ def main() -> int:
     print(f"{len(paths)} strokes, {sum(len(p) for p in paths)} points")
 
     source = Image.open(args.image).convert("RGB")
+    use_layout(source)
     render_gif(paths, source, out_dir / "demo.gif")
     render_pipeline(source, vectorizer.edges, preview, out_dir / "pipeline.png")
     return 0

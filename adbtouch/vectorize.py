@@ -8,7 +8,8 @@ import cv2
 import numpy as np
 from PIL import Image
 
-from .paths import tidy
+from .paths import simplify, tidy
+from .trace import rank_strokes, thin, trace_skeleton, xdog
 
 __all__ = ["VectorizeSettings", "Vectorizer", "dedupe_retrace"]
 
@@ -57,6 +58,14 @@ class VectorizeSettings:
     """Knobs for :meth:`Vectorizer.process`.
 
     Attributes:
+        method: ``"xdog"`` finds lines the way a person would and traces each
+            one once; ``"canny"`` is the older outline-based path, kept because
+            it suits flat vector art where every region really is an outline.
+        sigma: XDoG scale, in pixels. The single most useful knob: larger
+            ignores texture and keeps structure.
+        ink: Roughly what fraction of the picture becomes line, 0 to 1.
+        stroke_limit: Keep only this many strokes, longest first. Readability is
+            mostly about what gets left out.
         target_width: Downscale wide images to this width before edge detection.
         low_threshold / high_threshold: Canny hysteresis bounds.
         epsilon: Douglas-Peucker tolerance; larger means fewer, coarser points.
@@ -69,6 +78,10 @@ class VectorizeSettings:
         remove_background: Use ``rembg`` if it is installed.
     """
 
+    method: str = "xdog"
+    sigma: float = 2.2
+    ink: float = 0.16
+    stroke_limit: int | None = None
     target_width: int | None = 1000
     low_threshold: int = 50
     high_threshold: int = 150
@@ -80,11 +93,18 @@ class VectorizeSettings:
 
     @classmethod
     def from_sliders(cls, sensitivity: float, detail: float, **kwargs) -> "VectorizeSettings":
-        """Build settings from the two 1-10 sliders the GUI exposes."""
+        """Build settings from the two 1-10 sliders the GUI exposes.
+
+        Sensitivity sets how much of the picture becomes line, and detail sets
+        how finely each line is followed. Both feed the Canny knobs too, so the
+        sliders mean the same thing whichever method is in use.
+        """
         return cls(
             low_threshold=int(20 + (sensitivity - 1) * 10),
             high_threshold=int(60 + (sensitivity - 1) * 15),
-            epsilon=0.5 + (10 - detail) * 0.5,
+            ink=max(0.04, min(0.45, 0.05 + sensitivity * 0.028)),
+            sigma=max(0.8, 3.4 - detail * 0.22),
+            epsilon=0.5 + (10 - detail) * 0.35,
             **kwargs,
         )
 
@@ -159,6 +179,9 @@ class Vectorizer:
                 image, (settings.target_width, int(height * scale)), interpolation=cv2.INTER_AREA
             )
 
+        if settings.method == "xdog":
+            return self._process_xdog(image, settings)
+
         self.edges = self._detect_edges(image, settings.low_threshold, settings.high_threshold)
         contours, _ = cv2.findContours(self.edges, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
 
@@ -176,6 +199,27 @@ class Vectorizer:
                           min_length=settings.min_length)
 
         preview = np.full((*self.edges.shape, 3), 255, dtype=np.uint8)
+        for path in self.paths:
+            cv2.polylines(preview, [np.array(path, dtype=np.int32)], False, (0, 0, 0), 1)
+        return Image.fromarray(preview), self.paths
+
+    def _process_xdog(self, image, settings):
+        """Lines first, then one stroke along each - not a loop around it."""
+        gray = np.asarray(Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)))
+        mask = xdog(gray, sigma=settings.sigma, ink=settings.ink)
+        skeleton = thin(mask)
+        self.edges = (~skeleton * 255).astype(np.uint8)
+
+        paths = [simplify(path, settings.epsilon) for path in trace_skeleton(skeleton)]
+        paths = tidy(paths, join_tolerance=settings.join_tolerance,
+                     min_length=settings.min_length)
+        # Two points, not min_points: simplification turns a perfectly good
+        # straight stroke into its two endpoints, and judging a stroke by how
+        # many points it has left would throw away every straight line in the
+        # picture. Length is what matters, and tidy() has already applied it.
+        self.paths = rank_strokes(paths, settings.stroke_limit, min_points=2)
+
+        preview = np.full((*skeleton.shape, 3), 255, dtype=np.uint8)
         for path in self.paths:
             cv2.polylines(preview, [np.array(path, dtype=np.int32)], False, (0, 0, 0), 1)
         return Image.fromarray(preview), self.paths
