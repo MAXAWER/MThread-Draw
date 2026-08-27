@@ -126,6 +126,11 @@ h1 { font-size: 44px; margin: 18px 0 10px; letter-spacing: -.02em; }
 h2 { font-size: 26px; margin: 54px 0 6px; letter-spacing: -.01em; }
 .sub { color: var(--dim); margin: 0 0 20px; max-width: 70ch; }
 
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+.tile { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; }
+.tile h3 { margin: 0 0 8px; font-size: 17px; letter-spacing: -.01em; }
+.tile p { margin: 0; color: var(--dim); font-size: 14.5px; }
+
 .picker { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
 .pick {
   padding: 7px 14px; border-radius: 8px; border: 1px solid var(--line);
@@ -164,8 +169,9 @@ footer { color: var(--dim); font-size: 14px; margin-top: 60px; }
   <div class="mark"><div class="dot"></div></div>
   <h1>MThread Draw</h1>
   <p class="lede">It turns an ordinary photograph into touch strokes and draws it on an
-  Android phone, over ADB, with nothing installed on the device. A drawing of
-  five hundred points lands in about two seconds.</p>
+  Android phone, over ADB, with nothing installed on the device. You watch the
+  phone's screen while you place the drawing on it, and a drawing of five hundred
+  points lands in about a second and a half.</p>
   <div class="cta">
     <a class="btn primary" href="https://github.com/MAXAWER/MThread-Draw/releases/latest">Download</a>
     <a class="btn" href="https://github.com/MAXAWER/MThread-Draw">Source on GitHub</a>
@@ -190,6 +196,49 @@ sends them. Drag along the grey lines and try to cover them. The clock starts wh
       <button class="btn" id="watch" type="button">Watch it draw</button>
       <button class="btn" id="again" type="button">Start over</button>
     </div>
+  </div>
+</div>
+
+<h2>What it does</h2>
+<p class="sub">Everything below is in the released build, and every claim on this page was
+measured rather than estimated.</p>
+
+<div class="grid">
+  <div class="tile">
+    <h3>It shows you the phone</h3>
+    <p>The screen, live, in its own shape, with the drawing lying over exactly where
+    it will land. About three frames a second: the phone scales and compresses each
+    one, so the cable carries 27 kB instead of a sixteen-megabyte framebuffer.</p>
+  </div>
+  <div class="tile">
+    <h3>Put it where you want it</h3>
+    <p>Drag it over the live view, wheel to resize, Shift and wheel to turn, and
+    flip it either way. Held in fractions of the screen, so it survives the phone
+    being turned and means the same thing on a different device.</p>
+  </div>
+  <div class="tile">
+    <h3>Layers</h3>
+    <p>Several pictures arranged against each other before anything is drawn, each
+    with its own position and its own tracer settings. Hide one, reorder them,
+    remove one.</p>
+  </div>
+  <div class="tile">
+    <h3>An eraser</h3>
+    <p>Drag across the strokes you do not want and they come out. Which ones count
+    as under the cursor is decided after placement, because the cursor is over a
+    picture of the phone rather than over a coordinate space.</p>
+  </div>
+  <div class="tile">
+    <h3>Record and replay</h3>
+    <p>Record what you do on the phone and play it back, on that phone or another
+    one. The file holds each touch as a fraction of the screen, so replaying it
+    elsewhere scales it to that screen rather than refusing.</p>
+  </div>
+  <div class="tile">
+    <h3>Or draw with no picture at all</h3>
+    <p><code>mthread shape heart</code>, <code>mthread shape star --points 7</code>,
+    <code>mthread text "hello"</code>. Seven shapes from equations, and text in any
+    font the machine has.</p>
   </div>
 </div>
 
