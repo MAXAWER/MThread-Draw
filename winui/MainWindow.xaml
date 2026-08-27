@@ -55,8 +55,27 @@
 
                 <Button x:Name="LoadButton" Content="Load image…" HorizontalAlignment="Stretch"
                         Click="OnLoadImage"/>
-                <TextBlock x:Name="ImageText" Opacity="0.7" TextWrapping="Wrap" Margin="0,0,0,10"
+                <TextBlock x:Name="ImageText" Opacity="0.7" TextWrapping="Wrap" Margin="0,0,0,8"
                            Text="No image loaded"/>
+
+                <!--
+                    Layers. Several pictures arranged against each other before
+                    anything is drawn, each with its own placement and its own
+                    tracer settings.
+                -->
+                <ListView x:Name="LayerList" MaxHeight="130" Margin="0,0,0,6"
+                          SelectionMode="Single" SelectionChanged="OnLayerSelected"
+                          Background="{ThemeResource LayerFillColorDefaultBrush}"
+                          BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                          BorderThickness="1" CornerRadius="6"/>
+                <Grid ColumnDefinitions="*,6,*,6,*" Margin="0,0,0,12">
+                    <Button x:Name="LayerRaiseButton" Content="Bring forward" FontSize="12"
+                            HorizontalAlignment="Stretch" Click="OnLayerRaise" IsEnabled="False"/>
+                    <Button x:Name="LayerHideButton" Grid.Column="2" Content="Hide" FontSize="12"
+                            HorizontalAlignment="Stretch" Click="OnLayerHide" IsEnabled="False"/>
+                    <Button x:Name="LayerRemoveButton" Grid.Column="4" Content="Remove" FontSize="12"
+                            HorizontalAlignment="Stretch" Click="OnLayerRemove" IsEnabled="False"/>
+                </Grid>
 
                 <TextBlock Text="What is in the picture" FontWeight="SemiBold"/>
                 <ComboBox x:Name="TracerBox" HorizontalAlignment="Stretch"
@@ -126,7 +145,7 @@
             the phone's rather than a guess. Stretch is Fill inside because the
             frame already has the right aspect ratio.
         -->
-        <Grid Grid.Row="2" Grid.Column="1" Margin="8,16,16,16" RowDefinitions="*,Auto"
+        <Grid Grid.Row="2" Grid.Column="1" Margin="8,16,16,16" RowDefinitions="*,Auto,Auto"
               x:Name="PhoneStage" Background="Transparent"
               PointerPressed="OnStagePressed" PointerMoved="OnStageMoved"
               PointerReleased="OnStageReleased" PointerCanceled="OnStageReleased"
@@ -134,7 +153,7 @@
             <Viewbox Stretch="Uniform" StretchDirection="DownOnly">
                 <Border x:Name="PhoneFrame" Width="336" Height="748" CornerRadius="30"
                         Background="#0E0F13" Padding="9">
-                    <Grid CornerRadius="22" Background="#1B1D24">
+                    <Grid x:Name="PhoneScreen" CornerRadius="22" Background="#1B1D24">
                         <Image x:Name="MirrorImage" Stretch="Fill"/>
                         <Image x:Name="OverlayImage" Stretch="Fill" Opacity="0.95"/>
                     </Grid>
@@ -147,7 +166,22 @@
             <ProgressRing x:Name="Busy" IsActive="False" Width="42" Height="42"
                           VerticalAlignment="Top" HorizontalAlignment="Right" Margin="12"/>
 
-            <TextBlock x:Name="PlaceHint" Grid.Row="1" Margin="0,10,0,0" FontSize="12"
+            <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="6" Margin="0,10,0,0"
+                        HorizontalAlignment="Center">
+                <ToggleButton x:Name="MoveToggle" Content="Move" IsChecked="True" FontSize="12"
+                              Click="OnToolChanged"/>
+                <ToggleButton x:Name="EraseToggle" Content="Erase" FontSize="12"
+                              Click="OnToolChanged"/>
+                <Button x:Name="UndoEraseButton" Content="Undo erase" FontSize="12"
+                        Click="OnUndoErase"/>
+                <Button x:Name="FlipXButton" Content="Flip ↔" FontSize="12" Click="OnFlipX"/>
+                <Button x:Name="FlipYButton" Content="Flip ↕" FontSize="12" Click="OnFlipY"/>
+                <Button x:Name="FitButton" Content="Fit" FontSize="12" Click="OnFit"/>
+                <Button x:Name="StillButton" Content="Use a screenshot…" FontSize="12"
+                        Click="OnUseStill"/>
+            </StackPanel>
+
+            <TextBlock x:Name="PlaceHint" Grid.Row="2" Margin="0,8,0,0" FontSize="12"
                        HorizontalAlignment="Center" Opacity="0.55"
                        Text="Drag to move it · wheel to resize · Shift and wheel to turn · double-click to fit"/>
         </Grid>

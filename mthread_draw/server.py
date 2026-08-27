@@ -35,6 +35,7 @@ import tempfile
 import threading
 import time
 import traceback
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from PIL import Image, ImageDraw
@@ -52,6 +53,49 @@ from .geometry import Placement, place_on_screen
 OVERLAY_WIDTH = 540
 
 
+@dataclass
+class Layer:
+    """One picture on the way to the screen, with its own settings and place.
+
+    Several of these compose a drawing. Each keeps the paths it traced to, so
+    changing one does not re-trace the others, and its own placement, so they
+    can be arranged against each other before anything is drawn.
+    """
+
+    source: str
+    name: str
+    paths: list = field(default_factory=list)
+    #: Indices of strokes the eraser has taken out. Kept rather than deleted so
+    #: that re-tracing with different settings does not inherit erasures that
+    #: were aimed at strokes which no longer exist.
+    erased: set = field(default_factory=set)
+    placement: Placement = field(default_factory=Placement)
+    method: str = "canny"
+    sensitivity: float = 5.0
+    detail: float = 7.0
+    visible: bool = True
+
+    @property
+    def kept(self) -> list:
+        return [path for index, path in enumerate(self.paths) if index not in self.erased]
+
+    def summary(self) -> dict:
+        return {
+            "name": self.name,
+            "source": self.source,
+            "strokes": len(self.kept),
+            "erased": len(self.erased),
+            "points": sum(len(path) for path in self.kept),
+            "method": self.method,
+            "detail": self.detail,
+            "visible": self.visible,
+            "scale": round(self.placement.scale, 3),
+            "rotation": round(self.placement.rotation, 1),
+            "flip_x": self.placement.flip_x,
+            "flip_y": self.placement.flip_y,
+        }
+
+
 class Engine:
     """One device, one image, one drawing at a time."""
 
@@ -59,7 +103,12 @@ class Engine:
         self._write = write
         self.device: Device | None = None
         self.vectorizer = Vectorizer()
-        self.paths: list = []
+        self.layers: list[Layer] = []
+        self.current = 0
+        #: Set when the automatic capture failed and a screenshot was supplied
+        #: by hand instead, so the front end has something to place against.
+        self.still: str | None = None
+        self.still_size: tuple[int, int] | None = None
         self.cancel = threading.Event()
         self.worker: threading.Thread | None = None
         self.drawing = threading.Event()
@@ -69,9 +118,6 @@ class Engine:
         #: The size of the last frame captured, which is the only thing that
         #: knows which way up the phone is being held.
         self.frame_size: tuple[int, int] | None = None
-        #: Where the drawing sits. Starts fitted to the screen; the front end
-        #: moves, scales and turns it from there.
-        self.placement = Placement()
         self.recorder: Recorder | None = None
         self.session: GestureSession | None = None
 
@@ -162,92 +208,225 @@ class Engine:
             self.mirror.close()
         self.mirror = self.mirror_thread = self.mirror_stop = None
 
-    def op_load_image(self, path: str) -> dict:
+    # ------------------------------------------------------------------ layers
+
+    @property
+    def layer(self) -> Layer:
+        if not self.layers:
+            raise MThreadError("Load an image first.")
+        self.current = max(0, min(self.current, len(self.layers) - 1))
+        return self.layers[self.current]
+
+    def op_load_image(self, path: str, replace: bool = False) -> dict:
+        """Add a picture, or replace the one selected.
+
+        Adding rather than replacing by default: several pictures arranged
+        against each other is the point of having layers at all, and a caller
+        that wants the old single-image behaviour asks for it.
+        """
         image = self.vectorizer.load_image(path)
-        return {"width": int(image.shape[1]), "height": int(image.shape[0])}
+        layer = Layer(source=path, name=Path(path).name)
+        if replace and self.layers:
+            layer.placement = self.layer.placement
+            self.layers[self.current] = layer
+        else:
+            self.layers.append(layer)
+            self.current = len(self.layers) - 1
+        self._trace(layer)
+        return {
+            "width": int(image.shape[1]),
+            "height": int(image.shape[0]),
+            **self._layers_summary(),
+        }
+
+    def op_layers(self) -> dict:
+        return self._layers_summary()
+
+    def op_layer_select(self, index: int) -> dict:
+        if not 0 <= index < len(self.layers):
+            raise MThreadError(f"There is no layer {index}.")
+        self.current = index
+        return self._layers_summary()
+
+    def op_layer_remove(self, index: int | None = None) -> dict:
+        if not self.layers:
+            raise MThreadError("There is nothing to remove.")
+        index = self.current if index is None else index
+        if not 0 <= index < len(self.layers):
+            raise MThreadError(f"There is no layer {index}.")
+        self.layers.pop(index)
+        self.current = min(self.current, max(0, len(self.layers) - 1))
+        return self._layers_summary()
+
+    def op_layer_visible(self, visible: bool, index: int | None = None) -> dict:
+        layer = self.layers[self.current if index is None else index]
+        layer.visible = bool(visible)
+        return self._layers_summary()
+
+    def op_layer_raise(self, index: int | None = None) -> dict:
+        """Move a layer later in the order, so it is drawn on top."""
+        index = self.current if index is None else index
+        if index + 1 < len(self.layers):
+            self.layers[index], self.layers[index + 1] = (self.layers[index + 1],
+                                                          self.layers[index])
+            if self.current == index:
+                self.current = index + 1
+        return self._layers_summary()
+
+    def _layers_summary(self) -> dict:
+        return {
+            "layers": [layer.summary() for layer in self.layers],
+            "current": self.current,
+            "overlay": self._overlay(),
+            "strokes": sum(len(layer.kept) for layer in self.layers if layer.visible),
+            "points": sum(len(path) for layer in self.layers if layer.visible
+                          for path in layer.kept),
+        }
+
+    # ----------------------------------------------------------------- tracing
+
+    def _trace(self, layer: Layer) -> float:
+        """Re-run the tracer for one layer, from its own file and settings."""
+        started = time.perf_counter()
+        # The vectoriser holds one image, so a layer that is not the one it last
+        # loaded has to be read again. Reading a JPEG costs a few milliseconds;
+        # keeping a vectoriser per layer would cost a copy of every image.
+        self.vectorizer.load_image(layer.source)
+        settings = VectorizeSettings.from_sliders(
+            layer.sensitivity, layer.detail, method=layer.method)
+        preview, paths = self.vectorizer.process(settings)
+        layer.paths = paths
+        # Erasures were aimed at strokes that may no longer exist.
+        layer.erased = set()
+
+        path = Path(tempfile.gettempdir()) / "mthread_draw_preview.png"
+        preview.save(path)
+        self._preview_path = str(path)
+        return time.perf_counter() - started
+
+    def op_preview(self, sensitivity: float = 5, detail: float = 7,
+                   method: str = "canny") -> dict:
+        """Re-trace the selected layer with new settings, without reloading it."""
+        layer = self.layer
+        layer.sensitivity, layer.detail, layer.method = sensitivity, detail, method
+        seconds = self._trace(layer)
+        return {
+            "path": self._preview_path,
+            "seconds": round(seconds, 2),
+            **self._layers_summary(),
+        }
+
+    # --------------------------------------------------------------- placement
 
     def op_place(self, dx: float = 0.0, dy: float = 0.0, zoom: float = 1.0,
-                 turn: float = 0.0, reset: bool = False) -> dict:
-        """Nudge the drawing about, and redraw the overlay that shows where.
+                 turn: float = 0.0, flip_x: bool = False, flip_y: bool = False,
+                 reset: bool = False) -> dict:
+        """Nudge the selected layer about, and redraw the overlay.
 
         Relative rather than absolute, because the front end is describing a
         gesture - a drag of so far, a wheel notch - and relative keeps the two
         ends from disagreeing about what the current position is.
         """
+        layer = self.layer
         if reset:
-            self.placement = Placement()
+            layer.placement = Placement()
         else:
             if dx or dy:
-                self.placement = self.placement.moved(dx, dy)
+                layer.placement = layer.placement.moved(dx, dy)
             if zoom and zoom != 1.0:
-                self.placement = self.placement.zoomed(zoom)
+                layer.placement = layer.placement.zoomed(zoom)
             if turn:
-                self.placement = self.placement.turned(turn)
-        return {
-            "overlay": self._overlay(),
-            "centre": list(self.placement.centre),
-            "scale": round(self.placement.scale, 3),
-            "rotation": round(self.placement.rotation, 1),
-        }
+                layer.placement = layer.placement.turned(turn)
+            if flip_x or flip_y:
+                layer.placement = layer.placement.mirrored(horizontal=flip_x,
+                                                           vertical=flip_y)
+        return self._layers_summary()
 
-    def op_preview(self, sensitivity: float = 5, detail: float = 7,
-                   method: str = "canny", margin: float = 0.06) -> dict:
-        started = time.perf_counter()
-        settings = VectorizeSettings.from_sliders(sensitivity, detail, method=method)
-        preview, paths = self.vectorizer.process(settings)
-        self.paths = paths
+    # ------------------------------------------------------------------ eraser
 
-        path = Path(tempfile.gettempdir()) / "mthread_draw_preview.png"
-        preview.save(path)
-        return {
-            "path": str(path),
-            "overlay": self._overlay(),
-            "strokes": len(paths),
-            "points": sum(len(p) for p in paths),
-            "seconds": round(time.perf_counter() - started, 2),
-        }
+    def op_erase(self, x: float = 0.0, y: float = 0.0, radius: float = 0.02,
+                 undo: bool = False) -> dict:
+        """Take out the strokes of the selected layer near a point.
+
+        The point and the radius are fractions of the screen, because that is
+        what the front end knows: it has a picture of the phone under the
+        cursor, not the tracer's coordinate space. Which stroke is near enough
+        is therefore decided after placement, not before it.
+        """
+        layer = self.layer
+        if undo:
+            layer.erased = set()
+            return self._layers_summary()
+
+        width, height = self.screen_now()
+        placed = place_on_screen(layer.paths, width, height, layer.placement)
+        reach = radius * max(width, height)
+        target_x, target_y = x * width, y * height
+
+        for index, stroke in enumerate(placed):
+            if index in layer.erased:
+                continue
+            for px, py in stroke:
+                if (px - target_x) ** 2 + (py - target_y) ** 2 <= reach * reach:
+                    layer.erased.add(index)
+                    break
+        return self._layers_summary()
+
+    # ---------------------------------------------------------------- overlays
 
     def _overlay(self) -> str | None:
-        """The strokes where they will actually land, on a transparent ground.
+        """Every visible layer where it will land, on a transparent ground.
 
         A preview beside the phone tells you what will be drawn; a preview lying
-        on top of the phone tells you where. The second is the one people
-        actually want, and it costs nothing extra - the placement is the same
-        call the drawing itself makes.
+        on top of the phone tells you where. The selected layer is drawn bright
+        and the rest dim, so it is clear which one the mouse is about to move.
         """
-        if self.device is None or not self.paths:
+        if not self.layers:
             return None
 
         width, height = self.screen_now()
-        placed = place_on_screen(self.paths, width, height, self.placement)
-
         scale = OVERLAY_WIDTH / width
         image = Image.new("RGBA", (OVERLAY_WIDTH, round(height * scale)), (0, 0, 0, 0))
         draw = ImageDraw.Draw(image)
-        for stroke in placed:
-            if len(stroke) >= 2:
-                draw.line([(x * scale, y * scale) for x, y in stroke],
-                          fill=(255, 64, 58, 235), width=2, joint="curve")
+
+        for index, layer in enumerate(self.layers):
+            if not layer.visible or not layer.kept:
+                continue
+            colour = (255, 64, 58, 235) if index == self.current else (110, 190, 255, 150)
+            for stroke in place_on_screen(layer.kept, width, height, layer.placement):
+                if len(stroke) >= 2:
+                    draw.line([(x * scale, y * scale) for x, y in stroke],
+                              fill=colour, width=2, joint="curve")
 
         path = Path(tempfile.gettempdir()) / "mthread_draw_overlay.png"
         image.save(path)
         return str(path)
 
+    # ----------------------------------------------------------------- drawing
+
+    def _all_placed(self) -> list:
+        """Every visible layer's strokes, in device pixels, in drawing order."""
+        width, height = self.screen_now()
+        placed = []
+        for layer in self.layers:
+            if layer.visible and layer.kept:
+                placed.extend(place_on_screen(layer.kept, width, height, layer.placement))
+        return placed
+
     def op_estimate(self, speed: float = 1.0, human: float = 0.0) -> dict:
         self._require_device()
-        if not self.paths:
+        placed = self._all_placed()
+        if not placed:
             return {"seconds": 0.0}
-        paths = simulate(self.paths, human, seed=0) if human > 0 else self.paths
+        paths = simulate(placed, human, seed=0) if human > 0 else placed
         return {"seconds": round(self.device.estimate_duration(paths, speed=speed), 1)}
 
-    def op_draw(self, speed: float = 1.0, human: float = 0.0,
-                margin: float = 0.06) -> dict:
+    def op_draw(self, speed: float = 1.0, human: float = 0.0) -> dict:
         self._require_device()
-        if not self.paths:
-            raise MThreadError("Load an image and take a preview first.")
+        placed = self._all_placed()
+        if not placed:
+            raise MThreadError("Load an image first.")
 
-        width, height = self.screen_now()
-        placed = place_on_screen(self.paths, width, height, self.placement)
         self.cancel.clear()
         self.drawing.set()
         self.status(f"Drawing {len(placed)} strokes")
@@ -263,6 +442,7 @@ class Engine:
         finally:
             self.drawing.clear()
         return {"strokes": drawn, "stopped": self.cancel.is_set()}
+
 
     # ---------------------------------------------------- recording gestures
 
@@ -335,6 +515,21 @@ class Engine:
         self.cancel.set()
         return {"stopping": True}
 
+    def op_still(self, path: str) -> dict:
+        """Use a screenshot taken by hand instead of one captured over ADB.
+
+        Capture fails on some devices and in some emulators, and when it does
+        there is nothing to place a drawing against. A screenshot taken on the
+        phone and copied across is a picture of the same screen; it does not
+        update, but it is enough to arrange a drawing on, and its proportions
+        are the ones that matter for placement.
+        """
+        with Image.open(path) as image:
+            self.still = path
+            self.still_size = image.size
+        return {"path": path, "width": self.still_size[0], "height": self.still_size[1],
+                **self._layers_summary()}
+
     def screen_now(self) -> tuple[int, int]:
         """The screen as it is being held, not as it was manufactured.
 
@@ -344,6 +539,11 @@ class Engine:
         captured frame is the one thing that knows: if it is the other way round
         from the natural size, so is the phone.
         """
+        if self.device is None:
+            # No phone attached: a screenshot supplied by hand is the only thing
+            # that knows the shape of the screen, and failing that a common one
+            # keeps placement working so a drawing can be arranged in advance.
+            return self.still_size or (1080, 1920)
         width, height = self.device.screen_size
         if self.frame_size:
             frame_width, frame_height = self.frame_size
@@ -357,8 +557,10 @@ class Engine:
 
 
 #: Operations that may take a while, and so must not block the reader.
-SLOW = {"preview", "draw", "screenshot", "connect", "mirror", "place",
-        "play", "record_stop", "session_open", "session_save"}
+SLOW = {"preview", "draw", "screenshot", "connect", "mirror", "place", "erase",
+        "load_image", "still", "layer_select", "layer_remove", "layer_visible",
+        "layer_raise", "layers", "play", "record_stop", "session_open",
+        "session_save"}
 
 
 def serve(stdin=None, stdout=None) -> int:
