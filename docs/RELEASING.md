@@ -16,15 +16,18 @@
 
 | Artifact | Built on |
 |---|---|
-| `MThread Draw-<version>-x64.msi`, and the same app as a `.zip` | windows-latest |
+| `MThreadDraw-<version>-x64.msi`, and the same application as a `.zip` | windows-latest |
 | `MThreadDraw-<version>-arm64.dmg` | macos-latest |
 | `MThreadDraw-<version>-x64.dmg` | macos-15-intel |
 | sdist and wheel | ubuntu-latest |
 
 Tags must start with `v`. Anything else is ignored by the workflow. The same
-build jobs also run on any pull request that touches `packaging/` or the build
-scripts, without publishing - packaging breaks quietly, and only on the platform
-you are not developing on.
+build jobs also run on any pull request that touches `packaging/`, the build
+scripts or either front end, without publishing - packaging breaks quietly, and
+only on the platform you are not developing on. For `macos/` that is not a
+safety net but the only compiler it ever meets: there is no Mac on the
+maintainer's desk, and the first commit of the Swift front end reached CI with
+two errors in it.
 
 ## The Windows front end
 
@@ -53,14 +56,42 @@ Two things about it are not obvious and cost an afternoon each:
   targets load MSBuild tasks that only ship with VS. Version 2.x does not, which
   is why the reference is pinned there.
 
+## The macOS front end
+
+`macos/` is a SwiftUI application, built as a Swift package rather than an Xcode
+project so that `swift build` on a runner is the whole build with no project file
+to keep in sync. `tools/build_macos.py` assembles the `.app` around the binary
+and folds the engine into `Contents/Resources/engine`.
+
+The glass is `NSVisualEffectView` with `behindWindow` blending, not SwiftUI's
+`.ultraThinMaterial`: the material frosts what is behind it *inside* the window,
+which on a plain background is a grey panel. Only the AppKit view samples the
+desktop under the window, which is what the word glass means here.
+
+Two things to know before touching it:
+
+- **The deployment target is macOS 13**, and a modern SDK will happily compile
+  macOS 14 API without a word until it reaches `swift build` on the runner. The
+  argument-less `onChange(of:)` is the one that got in.
+- **No file may be called `main.swift`**, because a file by that name is
+  top-level code and cannot coexist with the `@main` attribute the app entry
+  point uses.
+
 ## Building locally
 
 ```bash
 pip install pyinstaller
-python tools/build_app.py --msi        # Windows
-python tools/build_app.py --dmg        # macOS
-python tools/build_app.py --archive    # a plain zip / tar.gz anywhere
+python tools/build_app.py              # the engine alone
+python tools/build_app.py --msi        # engine, WinUI front end, installer
+python tools/build_macos.py --dmg      # macOS: the bundle and its disk image
 ```
+
+Everything is built in a scratch directory outside the checkout, and only the
+finished installer and zip are copied into `dist/`. This tree lives in OneDrive
+on one machine, and a sync client holds handles on files while it uploads them:
+writing several thousand of them into a synced folder failed at a different step
+every time - deleting the last build, zipping a DLL, harvesting for the
+installer - always with an access denied that named a file rather than a cause.
 
 Each build runs the packaged app's own self-test (`MThread Draw --selftest`) before
 it is considered finished: it imports the whole application and resolves and
@@ -121,7 +152,7 @@ Once the first upload lands, the install line in the README can become:
 
 ```bash
 pip install mthread          # library
-pip install "mthread-draw[gui]"   # + the desktop app
+pip install mthread-draw    # + the engine the windows drive
 ```
 
 ## Version numbers
