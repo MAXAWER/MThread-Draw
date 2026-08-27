@@ -25,9 +25,3 @@ every line is real and none of them tells you what you are looking at.
 The three from Wikimedia Commons arrived there through its Unsplash import and
 carry the CC0 waiver on their file pages. The Met's photograph is part of that
 museum's Open Access release, also CC0.
-
-## castle.png
-
-Drawn from scratch by `tools/make_sample.py`. No third-party rights, and useful
-as a test case precisely because it is synthetic: the tracer's output can be
-compared against lines whose true positions are known.

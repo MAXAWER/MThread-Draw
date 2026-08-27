@@ -369,10 +369,15 @@ one of them, while leaving genuine closed shapes like circles intact.
 - **Recordings are portable now**, holding fractions of a screen rather than
   digitizer coordinates. A file written by an older version is not, and says so
   rather than misfiring.
-- **Rotation is not handled.** Record and replay in the same orientation.
-- **Some devices expose no touchscreen usable by `sendevent`.** Drawing then fails
-  with an explicit error instead of a wrong result; `Device.swipe()` still works,
-  and an automatic fallback is an open task.
+- **A recording does not know which way up the phone was.** Drawing follows the
+  orientation - the engine reads it from the captured frame, since `wm size` does
+  not change when a phone is turned - but a recording holds fractions of the
+  screen it was made on, so replaying a portrait one in landscape lands sideways.
+  Replay in the orientation you recorded in.
+- **Replay timing carries a fixed overhead.** Starting and stopping the on-device
+  injector costs a second or two, so a two-second recording takes longer than two
+  seconds. The strokes and the gaps between them are faithful; the total is not,
+  and that matters if you are timing something.
 - **`mthread info` is the first thing to check** when touches land in the wrong
   place.
 
@@ -386,13 +391,15 @@ are the easiest way in. Things worth doing:
 
 - SVG input, so line art skips edge detection entirely.
 - Auto-detect swapped X/Y axes (the `swap_xy` flag exists but nothing sets it).
-- Rotation-aware coordinate mapping.
-- An automatic `input swipe` fallback when raw touch is unavailable.
+- Rotation in recordings: store which way up the phone was, and turn a replay to
+  match. Drawing already follows the orientation; replay does not.
+- Take the fixed second or two out of replay by keeping the injector alive
+  between runs.
 - Trim recordings visually in the app; cut dead time at the start and end.
 - Assertions during replay — wait for a screenshot to match before continuing,
   which is what turns this into a real test runner.
-- Skeletonise edges instead of halving contours, for cleaner line art.
 - Pressure-sensitive strokes from image darkness.
+- Shed OpenCV. Five of its functions are used and it is half the download.
 
 ---
 
@@ -586,7 +593,14 @@ mthread play session.json --speed 2 --repeat 5
 
 - Записи **переносятся между телефонами**: внутри доли экрана, а не сырые
   координаты дигитайзера. Файлы старого формата не переносятся и честно об этом
-  сообщают, а не рисуют мимо. Старые записи — сырые координаты
+  сообщают, а не рисуют мимо.
+- **Запись не знает, как был повёрнут телефон.** Рисование ориентацию учитывает —
+  движок читает её из снятого кадра, поскольку `wm size` при повороте не
+  меняется, — но запись хранит доли того экрана, на котором сделана, поэтому
+  портретная запись в горизонтальной ориентации ляжет набок.
+- **У воспроизведения есть постоянная накладная стоимость** — секунда-две на
+  запуск и остановку инжектора. Штрихи и паузы между ними точны, а общая
+  длительность нет. Старые записи — сырые координаты
   тачскрина. Попытка воспроизвести запись на панели другого размера будет
   отклонена, а не выполнена криво.
 - Поворот экрана не учитывается: записывайте и воспроизводите в одной ориентации.

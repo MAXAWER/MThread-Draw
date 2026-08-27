@@ -6,7 +6,7 @@ over wireless ADB, and an emulator, and needs no app installed.
 
     python tools/test_canvas.py                              # open the canvas
     python tools/test_canvas.py --pattern --shot out.png     # calibration pattern
-    python tools/test_canvas.py --image examples/castle.png  # draw a picture on it
+    python tools/test_canvas.py --image examples/guitar.jpg  # draw a picture on it
 
 The pattern is a rectangle inset by a tenth of the screen, its diagonals, and a
 cross in the middle. Held against the canvas grid it answers the question this
