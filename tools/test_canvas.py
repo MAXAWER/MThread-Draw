@@ -61,16 +61,25 @@ def fit_to_screen(paths, width, height, *, margin=0.06):
     return [[(round(x * scale + dx), round(y * scale + dy)) for x, y in path] for path in paths]
 
 
-def calibration_paths(width: int, height: int, margin: float = 0.12) -> list[list[tuple[int, int]]]:
+def calibration_paths(width: int, height: int, margin: float = 0.12,
+                      top_margin: float = 0.20,
+                      bottom_margin: float = 0.10) -> list[list[tuple[int, int]]]:
     """A rectangle, its diagonals and a centre cross, in display pixels.
 
-    The margin has to clear whatever chrome the canvas is sitting under - a
-    browser toolbar at the top, the gesture bar at the bottom - or the pattern
-    is drawn on the browser instead of on the page.
+    The margins clear whatever chrome the canvas is sitting under, and they are
+    not symmetric because the chrome is not: a browser puts an address bar and
+    the page's own header above the canvas and only a gesture bar below it. On a
+    1080x2280 emulator that came to about 280 pixels at the top, so a twelfth of
+    the height was not enough and the rectangle's top edge was drawn on the
+    toolbar instead of on the page - which looks exactly like touches landing in
+    the wrong place, and is not.
     """
     left, right = round(width * margin), round(width * (1 - margin))
-    top, bottom = round(height * margin), round(height * (1 - margin))
-    cx, cy = width // 2, height // 2
+    top, bottom = round(height * top_margin), round(height * (1 - bottom_margin))
+    # The rectangle's centre, not the screen's. With asymmetric margins those
+    # are different points, and a cross drawn at the screen's centre sits above
+    # where the diagonals meet - which reads as a calibration error and is not.
+    cx, cy = (left + right) // 2, (top + bottom) // 2
     arm = min(width, height) // 12
 
     def line(x1, y1, x2, y2, steps=40):
@@ -99,6 +108,8 @@ def main() -> int:
     parser.add_argument("--image", help="also draw this image on the canvas")
     parser.add_argument("--sensitivity", type=float, default=3.0, help="edge sensitivity, 1-10")
     parser.add_argument("--detail", type=float, default=8.0, help="detail, 1-10")
+    parser.add_argument("--top-margin", type=float, default=0.20,
+                        help="extra room at the top for browser chrome")
     parser.add_argument("--margin", type=float, default=0.12,
                         help="fraction of the screen to keep clear around the drawing")
     parser.add_argument("--hand", type=float, default=0.0,
@@ -143,7 +154,8 @@ def main() -> int:
         time.sleep(args.wait)
 
     if args.pattern:
-        drawn = device.draw_paths(calibration_paths(width, height, args.margin),
+        drawn = device.draw_paths(calibration_paths(width, height, args.margin,
+                                                      args.top_margin),
                                   human=args.hand, speed=args.speed, seed=1)
         print(f"drew {drawn} strokes; the counter on the canvas should agree")
         print("The rectangle should sit a tenth of the screen in from every edge and")
