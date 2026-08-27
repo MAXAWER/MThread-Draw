@@ -93,6 +93,27 @@
                         Click="OnDraw" IsEnabled="False"/>
                 <Button x:Name="StopButton" Content="Stop" HorizontalAlignment="Stretch"
                         Click="OnStop" IsEnabled="False"/>
+
+                <!--
+                    Recording, which is the other half of what this does. The
+                    file it writes holds fractions of a screen rather than
+                    digitizer coordinates, so it replays on a different phone.
+                -->
+                <TextBlock Text="Record and replay" FontWeight="SemiBold" Margin="0,26,0,6"/>
+                <TextBlock x:Name="SessionText" Opacity="0.7" FontSize="12" TextWrapping="Wrap"
+                           Text="Nothing recorded yet."/>
+                <Grid ColumnDefinitions="*,8,*" Margin="0,8,0,0">
+                    <Button x:Name="RecordButton" Content="Record" HorizontalAlignment="Stretch"
+                            Click="OnRecord"/>
+                    <Button x:Name="PlayButton" Grid.Column="2" Content="Play"
+                            HorizontalAlignment="Stretch" Click="OnPlay" IsEnabled="False"/>
+                </Grid>
+                <Grid ColumnDefinitions="*,8,*" Margin="0,8,0,0">
+                    <Button x:Name="OpenSessionButton" Content="Open…" HorizontalAlignment="Stretch"
+                            Click="OnOpenSession"/>
+                    <Button x:Name="SaveSessionButton" Grid.Column="2" Content="Save…"
+                            HorizontalAlignment="Stretch" Click="OnSaveSession" IsEnabled="False"/>
+                </Grid>
             </StackPanel>
         </ScrollViewer>
 
@@ -105,7 +126,11 @@
             the phone's rather than a guess. Stretch is Fill inside because the
             frame already has the right aspect ratio.
         -->
-        <Grid Grid.Row="2" Grid.Column="1" Margin="8,16,16,16">
+        <Grid Grid.Row="2" Grid.Column="1" Margin="8,16,16,16" RowDefinitions="*,Auto"
+              x:Name="PhoneStage" Background="Transparent"
+              PointerPressed="OnStagePressed" PointerMoved="OnStageMoved"
+              PointerReleased="OnStageReleased" PointerCanceled="OnStageReleased"
+              PointerWheelChanged="OnStageWheel" DoubleTapped="OnStageDoubleTapped">
             <Viewbox Stretch="Uniform" StretchDirection="DownOnly">
                 <Border x:Name="PhoneFrame" Width="336" Height="748" CornerRadius="30"
                         Background="#0E0F13" Padding="9">
@@ -121,6 +146,10 @@
                        Text="Connect a device to see its screen here."/>
             <ProgressRing x:Name="Busy" IsActive="False" Width="42" Height="42"
                           VerticalAlignment="Top" HorizontalAlignment="Right" Margin="12"/>
+
+            <TextBlock x:Name="PlaceHint" Grid.Row="1" Margin="0,10,0,0" FontSize="12"
+                       HorizontalAlignment="Center" Opacity="0.55"
+                       Text="Drag to move it · wheel to resize · Shift and wheel to turn · double-click to fit"/>
         </Grid>
 
         <!-- Status bar -->

@@ -40,10 +40,12 @@ from pathlib import Path
 from PIL import Image, ImageDraw
 
 from mthread import Device, VectorizeSettings, Vectorizer, find_devices, simulate
+from mthread.gestures import GestureSession
 from mthread.mirror import ScreenMirror
+from mthread.recorder import Recorder
 from mthread.errors import MThreadError
 
-from .geometry import fit_to_screen
+from .geometry import Placement, place_on_screen
 
 #: Width of the placement overlay. It is stretched over the mirror by the
 #: front end, so it only has to be fine enough to read, not full resolution.
@@ -64,6 +66,14 @@ class Engine:
         self.mirror: ScreenMirror | None = None
         self.mirror_thread: threading.Thread | None = None
         self.mirror_stop: threading.Event | None = None
+        #: The size of the last frame captured, which is the only thing that
+        #: knows which way up the phone is being held.
+        self.frame_size: tuple[int, int] | None = None
+        #: Where the drawing sits. Starts fitted to the screen; the front end
+        #: moves, scales and turns it from there.
+        self.placement = Placement()
+        self.recorder: Recorder | None = None
+        self.session: GestureSession | None = None
 
     # ---------------------------------------------------------------- talking
 
@@ -138,7 +148,10 @@ class Engine:
             slot = 1 - slot
             path = Path(tempfile.gettempdir()) / f"mthread_draw_frame_{slot}.jpg"
             path.write_bytes(jpeg)
-            self.event("frame", path=str(path))
+            with Image.open(path) as frame:
+                self.frame_size = frame.size
+            self.event("frame", path=str(path),
+                       width=self.frame_size[0], height=self.frame_size[1])
 
     def _stop_mirror(self) -> None:
         if self.mirror_stop is not None:
@@ -153,6 +166,30 @@ class Engine:
         image = self.vectorizer.load_image(path)
         return {"width": int(image.shape[1]), "height": int(image.shape[0])}
 
+    def op_place(self, dx: float = 0.0, dy: float = 0.0, zoom: float = 1.0,
+                 turn: float = 0.0, reset: bool = False) -> dict:
+        """Nudge the drawing about, and redraw the overlay that shows where.
+
+        Relative rather than absolute, because the front end is describing a
+        gesture - a drag of so far, a wheel notch - and relative keeps the two
+        ends from disagreeing about what the current position is.
+        """
+        if reset:
+            self.placement = Placement()
+        else:
+            if dx or dy:
+                self.placement = self.placement.moved(dx, dy)
+            if zoom and zoom != 1.0:
+                self.placement = self.placement.zoomed(zoom)
+            if turn:
+                self.placement = self.placement.turned(turn)
+        return {
+            "overlay": self._overlay(),
+            "centre": list(self.placement.centre),
+            "scale": round(self.placement.scale, 3),
+            "rotation": round(self.placement.rotation, 1),
+        }
+
     def op_preview(self, sensitivity: float = 5, detail: float = 7,
                    method: str = "canny", margin: float = 0.06) -> dict:
         started = time.perf_counter()
@@ -164,13 +201,13 @@ class Engine:
         preview.save(path)
         return {
             "path": str(path),
-            "overlay": self._overlay(margin),
+            "overlay": self._overlay(),
             "strokes": len(paths),
             "points": sum(len(p) for p in paths),
             "seconds": round(time.perf_counter() - started, 2),
         }
 
-    def _overlay(self, margin: float) -> str | None:
+    def _overlay(self) -> str | None:
         """The strokes where they will actually land, on a transparent ground.
 
         A preview beside the phone tells you what will be drawn; a preview lying
@@ -181,8 +218,8 @@ class Engine:
         if self.device is None or not self.paths:
             return None
 
-        width, height = self.device.screen_size
-        placed = fit_to_screen(self.paths, width, height, margin=margin)
+        width, height = self.screen_now()
+        placed = place_on_screen(self.paths, width, height, self.placement)
 
         scale = OVERLAY_WIDTH / width
         image = Image.new("RGBA", (OVERLAY_WIDTH, round(height * scale)), (0, 0, 0, 0))
@@ -203,14 +240,14 @@ class Engine:
         paths = simulate(self.paths, human, seed=0) if human > 0 else self.paths
         return {"seconds": round(self.device.estimate_duration(paths, speed=speed), 1)}
 
-    def op_draw(self, margin: float = 0.06, speed: float = 1.0,
-                human: float = 0.0) -> dict:
+    def op_draw(self, speed: float = 1.0, human: float = 0.0,
+                margin: float = 0.06) -> dict:
         self._require_device()
         if not self.paths:
             raise MThreadError("Load an image and take a preview first.")
 
-        width, height = self.device.screen_size
-        placed = fit_to_screen(self.paths, width, height, margin=margin)
+        width, height = self.screen_now()
+        placed = place_on_screen(self.paths, width, height, self.placement)
         self.cancel.clear()
         self.drawing.set()
         self.status(f"Drawing {len(placed)} strokes")
@@ -227,9 +264,92 @@ class Engine:
             self.drawing.clear()
         return {"strokes": drawn, "stopped": self.cancel.is_set()}
 
+    # ---------------------------------------------------- recording gestures
+
+    def op_record_start(self) -> dict:
+        self._require_device()
+        if self.recorder is not None and self.recorder.is_recording:
+            raise MThreadError("Already recording.")
+        self.recorder = Recorder(self.device)
+        self.recorder.start()
+        self.status("Recording. Do something on the phone.")
+        return {"recording": True}
+
+    def op_record_stop(self) -> dict:
+        if self.recorder is None:
+            raise MThreadError("Nothing is being recorded.")
+        raw = self.recorder.stop()
+        self.recorder = None
+
+        # The digitizer's ranges are what turn its numbers into fractions of a
+        # screen, and they are only knowable here, on the phone that recorded.
+        self.session = GestureSession.from_events(
+            raw.events, self.device.touch_device,
+            screen_size=self.device.screen_size,
+            device_serial=self.device.serial,
+            device_model=self.device.model,
+        )
+        return self._session_summary()
+
+    def op_session_save(self, path: str) -> dict:
+        if self.session is None:
+            raise MThreadError("There is no recording to save.")
+        self.session.save(path)
+        return {"path": path, **self._session_summary()}
+
+    def op_session_open(self, path: str) -> dict:
+        self.session = GestureSession.load(path)
+        return {"path": path, **self._session_summary()}
+
+    def op_play(self, speed: float = 1.0, repeat: int = 1) -> dict:
+        self._require_device()
+        if self.session is None or not self.session.strokes:
+            raise MThreadError("Open or record something first.")
+
+        self.cancel.clear()
+        self.drawing.set()
+        self.status(f"Replaying {len(self.session.strokes)} strokes")
+        try:
+            played = self.device.play_gestures(
+                self.session, speed=speed, repeat=repeat,
+                progress=lambda done, total: self.event("progress", done=done, total=total),
+                should_continue=lambda: not self.cancel.is_set(),
+            )
+        finally:
+            self.drawing.clear()
+        return {"strokes": played, "stopped": self.cancel.is_set()}
+
+    def _session_summary(self) -> dict:
+        session = self.session
+        if session is None:
+            return {"strokes": 0, "points": 0, "seconds": 0.0}
+        return {
+            "strokes": len(session.strokes),
+            "points": session.point_count,
+            "seconds": round(session.duration, 2),
+            "recorded_on": session.device_model or session.device_serial,
+            "recorded_size": list(session.screen_size) if session.screen_size else None,
+        }
+
     def op_stop(self) -> dict:
         self.cancel.set()
         return {"stopping": True}
+
+    def screen_now(self) -> tuple[int, int]:
+        """The screen as it is being held, not as it was manufactured.
+
+        ``wm size`` reports the natural orientation and does not change when the
+        phone is turned, so a drawing placed from it lands rotated on a phone in
+        landscape, and the preview is squashed into a portrait frame. The
+        captured frame is the one thing that knows: if it is the other way round
+        from the natural size, so is the phone.
+        """
+        width, height = self.device.screen_size
+        if self.frame_size:
+            frame_width, frame_height = self.frame_size
+            if (frame_width > frame_height) != (width > height):
+                return height, width
+        return width, height
 
     def _require_device(self) -> None:
         if self.device is None:
@@ -237,7 +357,8 @@ class Engine:
 
 
 #: Operations that may take a while, and so must not block the reader.
-SLOW = {"preview", "draw", "screenshot", "connect", "mirror"}
+SLOW = {"preview", "draw", "screenshot", "connect", "mirror", "place",
+        "play", "record_stop", "session_open", "session_save"}
 
 
 def serve(stdin=None, stdout=None) -> int:

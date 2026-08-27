@@ -5,10 +5,11 @@ Kept free of Tk so it can be unit tested without a display.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import math
+from dataclasses import dataclass, replace
 from typing import Sequence
 
-__all__ = ["CanvasView", "place_paths"]
+__all__ = ["CanvasView", "Placement", "fit_to_screen", "place_on_screen", "place_paths"]
 
 
 @dataclass(frozen=True)
@@ -80,6 +81,85 @@ def place_paths(
             points.append(point)
         if len(points) >= 2:
             placed.append(points)
+    return placed
+
+
+@dataclass(frozen=True)
+class Placement:
+    """Where a drawing goes on the screen, and how big and how tilted.
+
+    Held in fractions of the screen rather than pixels so that it survives the
+    phone being turned, and so the same numbers mean the same thing on a
+    different device.
+
+    Attributes:
+        centre: Where the middle of the drawing lands, 0 to 1 across the screen.
+        scale: Multiplier on the size it would have if fitted to the screen, so
+            1.0 is "as large as it goes with a margin".
+        rotation: Degrees clockwise.
+    """
+
+    centre: tuple[float, float] = (0.5, 0.5)
+    scale: float = 1.0
+    rotation: float = 0.0
+
+    def moved(self, dx: float, dy: float) -> "Placement":
+        return replace(self, centre=(self.centre[0] + dx, self.centre[1] + dy))
+
+    def zoomed(self, factor: float, *, low: float = 0.05, high: float = 6.0) -> "Placement":
+        return replace(self, scale=max(low, min(high, self.scale * factor)))
+
+    def turned(self, degrees: float) -> "Placement":
+        return replace(self, rotation=(self.rotation + degrees) % 360.0)
+
+
+def place_on_screen(paths, width: int, height: int, placement: Placement,
+                    *, margin: float = 0.06):
+    """Put *paths* on a screen of *width* x *height* as *placement* says.
+
+    The base size is the one :func:`fit_to_screen` would choose, so a scale of
+    one means the same thing whatever the drawing and whatever the phone, and
+    the slider a person turns is a multiplier on something recognisable.
+    """
+    points = [point for path in paths for point in path]
+    if not points:
+        return []
+
+    min_x = min(x for x, _ in points)
+    max_x = max(x for x, _ in points)
+    min_y = min(y for _, y in points)
+    max_y = max(y for _, y in points)
+    source_width = max(max_x - min_x, 1)
+    source_height = max(max_y - min_y, 1)
+    source_centre = ((min_x + max_x) / 2.0, (min_y + max_y) / 2.0)
+
+    # Rotation happens about the drawing's own middle, so turning it does not
+    # also throw it across the screen.
+    angle = math.radians(placement.rotation)
+    cos, sin = math.cos(angle), math.sin(angle)
+
+    # Fit the rotated bounding box, not the upright one; a drawing turned
+    # forty-five degrees needs more room than it did before, and without this it
+    # would quietly grow past the edges of the screen.
+    turned_width = abs(source_width * cos) + abs(source_height * sin)
+    turned_height = abs(source_width * sin) + abs(source_height * cos)
+
+    pad_x, pad_y = width * margin, height * margin
+    base = min((width - 2 * pad_x) / turned_width, (height - 2 * pad_y) / turned_height)
+    scale = base * placement.scale
+
+    target_x = placement.centre[0] * width
+    target_y = placement.centre[1] * height
+
+    placed = []
+    for path in paths:
+        line = []
+        for x, y in path:
+            ox, oy = x - source_centre[0], y - source_centre[1]
+            rx = ox * cos - oy * sin
+            ry = ox * sin + oy * cos
+            line.append((round(target_x + rx * scale), round(target_y + ry * scale)))
+        placed.append(line)
     return placed
 
 

@@ -205,10 +205,15 @@ class TouchInjector:
         self.process.stdin.flush()
 
     def stroke(self, points, pacing: Pacing | None = None,
-               rng: random.Random | None = None) -> None:
-        """Draw one stroke, waiting between points as *pacing* says to."""
+               rng: random.Random | None = None) -> float:
+        """Draw one stroke, waiting between points as *pacing* says to.
+
+        Returns how many milliseconds of work were handed to the device, which
+        the caller needs in order to know how far ahead of the drawing it has
+        run. Writing is nearly free; the waiting all happens on the phone.
+        """
         if len(points) < 2:
-            return
+            return 0.0
         pacing = pacing or Pacing()
         rng = rng or random.Random()
         delays = pace_stroke(points, pacing, rng)
@@ -234,11 +239,34 @@ class TouchInjector:
 
         with self._lock:
             self._write(lines)
+        return float(sum(delays))
 
-    def pause(self, millis: float) -> None:
+    def timed_stroke(self, points, delays) -> float:
+        """Draw a stroke whose waits are given rather than computed.
+
+        Replay needs the timing that was recorded, not the timing a pacing model
+        would invent, so this takes the gaps as they were measured.
+        """
+        if len(points) < 2:
+            return 0.0
+        lines = [f"D {points[0][0]:.1f} {points[0][1]:.1f}"]
+        total = 0.0
+        for (x, y), delay in zip(points[1:], list(delays) + [0.0] * len(points)):
+            if delay > 0.05:
+                lines.append(f"S {delay:.2f}")
+                total += delay
+            lines.append(f"M {x:.1f} {y:.1f}")
+        lines.append(f"U {points[-1][0]:.1f} {points[-1][1]:.1f}")
+        with self._lock:
+            self._write(lines)
+        return total
+
+    def pause(self, millis: float) -> float:
         if millis > 0.05:
             with self._lock:
                 self._write([f"S {millis:.2f}"])
+            return float(millis)
+        return 0.0
 
     def sync(self, timeout: float = 600.0) -> None:
         """Block until everything sent so far has been injected.

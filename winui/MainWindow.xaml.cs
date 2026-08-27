@@ -3,6 +3,7 @@ using System.Text.Json.Nodes;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Windows.Storage.Pickers;
 
@@ -14,13 +15,6 @@ public sealed partial class MainWindow : Window
     private bool _imageLoaded;
     private bool _connected;
     private bool _drawing;
-
-    /// <summary>The margin left around a drawing, as a fraction of the screen.</summary>
-    /// <remarks>
-    /// This used to be a slider. It was the least interesting control in the
-    /// window and it was in the way of the two that matter.
-    /// </remarks>
-    private const double Margin = 0.06;
 
     /// <summary>Coalesces slider movements: previewing on every tick would queue
     /// up seconds of work nobody is waiting for any more.</summary>
@@ -54,6 +48,12 @@ public sealed partial class MainWindow : Window
             await RefreshPreviewAsync();
         };
 
+        _placeDelay.Tick += async (_, _) =>
+        {
+            _placeDelay.Stop();
+            await SendPlaceAsync();
+        };
+
         Closed += async (_, _) =>
         {
             if (_engine is not null)
@@ -74,7 +74,8 @@ public sealed partial class MainWindow : Window
             _engine.Failed += text => Dispatch(() => StatusText.Text = text);
             _engine.ProgressChanged += (done, total) => Dispatch(() =>
                 Progress.Value = total > 0 ? 100.0 * done / total : 0);
-            _engine.FrameReady += path => Dispatch(() => ShowFrame(path));
+            _engine.FrameReady += (path, width, height) =>
+                Dispatch(() => ShowFrame(path, width, height));
             _engine.MirrorLost += text => Dispatch(() =>
                 StatusText.Text = $"The live view stopped: {text}");
 
@@ -150,7 +151,11 @@ public sealed partial class MainWindow : Window
 
             if (DeviceBox.Items.Count > 0)
             {
-                DeviceBox.SelectedIndex = 0;
+                // By item, not by index. Setting SelectedIndex on a ComboBox
+                // whose items were added moments earlier does not always take,
+                // and the box then shows "Looking for a device…" over a device
+                // that is connected and mirroring - which reads as a failure.
+                DeviceBox.SelectedItem = DeviceBox.Items[0];
                 StatusText.Text = $"{DeviceBox.Items.Count} device(s) found.";
 
                 // With one device there is nothing to choose, and the live view
@@ -220,16 +225,34 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>Give the on-screen phone the proportions of the real one.</summary>
+    /// <remarks>
+    /// Called again for every frame whose shape differs from the last, because
+    /// a phone that is turned reports the same `wm size` as before. Without it
+    /// a landscape screen is squeezed into the portrait frame it was given at
+    /// connect, and everything on it is drawn narrow.
+    /// </remarks>
     private void ShapeToDevice(int width, int height)
     {
+        if (width <= 0 || height <= 0)
+        {
+            return;
+        }
         var scale = 780.0 / Math.Max(width, height);
         // The frame's padding is its bezel, and it is outside the screen area.
-        PhoneFrame.Width = Math.Round(width * scale) + 18;
-        PhoneFrame.Height = Math.Round(height * scale) + 18;
+        var frameWidth = Math.Round(width * scale) + 18;
+        var frameHeight = Math.Round(height * scale) + 18;
+        if (Math.Abs(PhoneFrame.Width - frameWidth) < 0.5
+            && Math.Abs(PhoneFrame.Height - frameHeight) < 0.5)
+        {
+            return;
+        }
+        PhoneFrame.Width = frameWidth;
+        PhoneFrame.Height = frameHeight;
     }
 
-    private void ShowFrame(string path)
+    private void ShowFrame(string path, int width, int height)
     {
+        ShapeToDevice(width, height);
         try
         {
             // Read the bytes rather than pointing a BitmapImage at the file: the
@@ -311,6 +334,121 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    // ------------------------------------------------------------- placement
+
+    private bool _draggingDrawing;
+    private Windows.Foundation.Point _lastDrag;
+    private double _pendingX, _pendingY, _pendingZoom = 1.0, _pendingTurn;
+
+    /// <summary>Collects gestures and sends them at a rate the engine can meet.</summary>
+    /// <remarks>
+    /// A drag produces a pointer event per mouse report, and each one would
+    /// otherwise be a round trip that re-renders the overlay. Coalescing keeps
+    /// the drawing under the cursor without asking for sixty overlays a second.
+    /// </remarks>
+    private readonly DispatcherTimer _placeDelay = new() { Interval = TimeSpan.FromMilliseconds(70) };
+
+    private void OnStagePressed(object sender, PointerRoutedEventArgs args)
+    {
+        if (!_connected || !_imageLoaded || _drawing)
+        {
+            return;
+        }
+        _draggingDrawing = true;
+        _lastDrag = args.GetCurrentPoint(PhoneStage).Position;
+        PhoneStage.CapturePointer(args.Pointer);
+    }
+
+    private void OnStageMoved(object sender, PointerRoutedEventArgs args)
+    {
+        if (!_draggingDrawing)
+        {
+            return;
+        }
+        var here = args.GetCurrentPoint(PhoneStage).Position;
+        // In fractions of the phone's own picture, so a drag of an inch moves
+        // the drawing the same share of the screen whatever the window size.
+        _pendingX += (here.X - _lastDrag.X) / Math.Max(1.0, PhoneFrame.ActualWidth);
+        _pendingY += (here.Y - _lastDrag.Y) / Math.Max(1.0, PhoneFrame.ActualHeight);
+        _lastDrag = here;
+        SchedulePlace();
+    }
+
+    private void OnStageReleased(object sender, PointerRoutedEventArgs args)
+    {
+        _draggingDrawing = false;
+        PhoneStage.ReleasePointerCapture(args.Pointer);
+    }
+
+    private void OnStageWheel(object sender, PointerRoutedEventArgs args)
+    {
+        if (!_connected || !_imageLoaded || _drawing)
+        {
+            return;
+        }
+        var point = args.GetCurrentPoint(PhoneStage);
+        var notches = point.Properties.MouseWheelDelta / 120.0;
+        if (point.Properties.IsHorizontalMouseWheel
+            || args.KeyModifiers.HasFlag(Windows.System.VirtualKeyModifiers.Shift))
+        {
+            _pendingTurn += notches * 5.0;
+        }
+        else
+        {
+            _pendingZoom *= Math.Pow(1.1, notches);
+        }
+        args.Handled = true;
+        SchedulePlace();
+    }
+
+    private async void OnStageDoubleTapped(object sender, DoubleTappedRoutedEventArgs args)
+    {
+        if (_engine is null || !_imageLoaded)
+        {
+            return;
+        }
+        await SendPlaceAsync(reset: true);
+    }
+
+    private void SchedulePlace()
+    {
+        _placeDelay.Stop();
+        _placeDelay.Start();
+    }
+
+    private async Task SendPlaceAsync(bool reset = false)
+    {
+        if (_engine is null || !_imageLoaded)
+        {
+            return;
+        }
+
+        var dx = _pendingX;
+        var dy = _pendingY;
+        var zoom = _pendingZoom;
+        var turn = _pendingTurn;
+        _pendingX = _pendingY = _pendingTurn = 0;
+        _pendingZoom = 1.0;
+
+        try
+        {
+            var result = await _engine.CallAsync("place",
+                reset ? new { reset = true } : (object)new { dx, dy, zoom, turn });
+            var overlay = result["overlay"]?.GetValue<string>();
+            if (overlay is not null)
+            {
+                ShowOverlay(overlay);
+            }
+            PlaceHint.Text = $"{result["scale"]!.GetValue<double>():0.00}× · " +
+                             $"{result["rotation"]!.GetValue<double>():0}° · " +
+                             "drag to move · wheel to resize · Shift and wheel to turn · double-click to fit";
+        }
+        catch (EngineException error)
+        {
+            StatusText.Text = error.Message;
+        }
+    }
+
     private void OnSettingChanged(object sender, RoutedEventArgs args) => SchedulePreview();
 
     private void OnSliderChanged(object sender, RangeBaseValueChangedEventArgs args)
@@ -356,7 +494,6 @@ public sealed partial class MainWindow : Window
                 sensitivity = DetailSlider.Value,
                 detail = DetailSlider.Value,
                 method = Tracer,
-                margin = Margin,
             });
 
             var overlay = result["overlay"]?.GetValue<string>();
@@ -447,12 +584,7 @@ public sealed partial class MainWindow : Window
 
         try
         {
-            var result = await _engine.CallAsync("draw", new
-            {
-                margin = Margin,
-                speed = Speed,
-                human = Human,
-            });
+            var result = await _engine.CallAsync("draw", new { speed = Speed, human = Human });
             StatusText.Text = result["stopped"]!.GetValue<bool>()
                 ? "Stopped."
                 : $"Finished. {result["strokes"]!.GetValue<int>()} strokes drawn.";
@@ -478,11 +610,161 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    // ------------------------------------------------------ record and replay
+
+    private bool _recording;
+    private bool _haveSession;
+
+    private async void OnRecord(object sender, RoutedEventArgs args)
+    {
+        if (_engine is null)
+        {
+            return;
+        }
+
+        try
+        {
+            if (!_recording)
+            {
+                await _engine.CallAsync("record_start");
+                _recording = true;
+                RecordButton.Content = "Stop recording";
+                StatusText.Text = "Recording. Do something on the phone, then press stop.";
+            }
+            else
+            {
+                var result = await _engine.CallAsync("record_stop");
+                _recording = false;
+                RecordButton.Content = "Record";
+                ShowSession(result);
+            }
+        }
+        catch (EngineException error)
+        {
+            _recording = false;
+            RecordButton.Content = "Record";
+            StatusText.Text = error.Message;
+        }
+        UpdateButtons();
+    }
+
+    private void ShowSession(JsonNode result)
+    {
+        var strokes = result["strokes"]!.GetValue<int>();
+        var points = result["points"]!.GetValue<int>();
+        var seconds = result["seconds"]!.GetValue<double>();
+        _haveSession = strokes > 0;
+
+        var where = result["recorded_on"]?.GetValue<string>();
+        var size = result["recorded_size"]?.AsArray();
+        var origin = string.IsNullOrEmpty(where)
+            ? string.Empty
+            : $" · from {where}" + (size is null ? "" : $" at {size[0]}×{size[1]}");
+
+        SessionText.Text = strokes == 0
+            ? "Nothing was recorded — no touches were seen."
+            : $"{strokes} strokes, {points} points, {seconds:0.0}s{origin}";
+        StatusText.Text = _haveSession
+            ? "Recording ready. It replays on any phone, scaled to that screen."
+            : StatusText.Text;
+    }
+
+    private async void OnPlay(object sender, RoutedEventArgs args)
+    {
+        if (_engine is null)
+        {
+            return;
+        }
+
+        _drawing = true;
+        UpdateButtons();
+        try
+        {
+            var result = await _engine.CallAsync("play", new { speed = 1.0, repeat = 1 });
+            StatusText.Text = result["stopped"]!.GetValue<bool>()
+                ? "Stopped."
+                : $"Replayed {result["strokes"]!.GetValue<int>()} strokes.";
+        }
+        catch (EngineException error)
+        {
+            StatusText.Text = error.Message;
+        }
+        finally
+        {
+            _drawing = false;
+            Progress.Value = 0;
+            UpdateButtons();
+        }
+    }
+
+    private async void OnOpenSession(object sender, RoutedEventArgs args)
+    {
+        if (_engine is null)
+        {
+            return;
+        }
+
+        var picker = new FileOpenPicker();
+        WinRT.Interop.InitializeWithWindow.Initialize(picker,
+            WinRT.Interop.WindowNative.GetWindowHandle(this));
+        picker.FileTypeFilter.Add(".json");
+
+        var file = await picker.PickSingleFileAsync();
+        if (file is null)
+        {
+            return;
+        }
+
+        try
+        {
+            ShowSession(await _engine.CallAsync("session_open", new { path = file.Path }));
+        }
+        catch (EngineException error)
+        {
+            StatusText.Text = error.Message;
+        }
+        UpdateButtons();
+    }
+
+    private async void OnSaveSession(object sender, RoutedEventArgs args)
+    {
+        if (_engine is null)
+        {
+            return;
+        }
+
+        var picker = new FileSavePicker();
+        WinRT.Interop.InitializeWithWindow.Initialize(picker,
+            WinRT.Interop.WindowNative.GetWindowHandle(this));
+        picker.FileTypeChoices.Add("MThread recording", new List<string> { ".json" });
+        picker.SuggestedFileName = "recording";
+
+        var file = await picker.PickSaveFileAsync();
+        if (file is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await _engine.CallAsync("session_save", new { path = file.Path });
+            StatusText.Text = $"Saved to {file.Path}";
+        }
+        catch (EngineException error)
+        {
+            StatusText.Text = error.Message;
+        }
+    }
+
     private void UpdateButtons()
     {
         DrawButton.IsEnabled = _connected && _imageLoaded && !_drawing;
         StopButton.IsEnabled = _drawing;
         LoadButton.IsEnabled = !_drawing;
         ConnectButton.IsEnabled = !_drawing;
+        RecordButton.IsEnabled = _connected && !_drawing;
+        PlayButton.IsEnabled = _connected && _haveSession && !_drawing && !_recording;
+        OpenSessionButton.IsEnabled = !_drawing && !_recording;
+        SaveSessionButton.IsEnabled = _haveSession && !_recording;
     }
 }

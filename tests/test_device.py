@@ -228,9 +228,12 @@ class FallbackDrawingTests(unittest.TestCase):
 
             def stroke(self, points, pacing=None, rng=None):
                 started.append(("stroke", len(points)))
+                # The real one answers with the milliseconds it queued, which is
+                # how the caller knows when to wait for the device.
+                return 0.0
 
             def pause(self, millis):
-                pass
+                return 0.0
 
             def sync(self, timeout=600.0):
                 pass
@@ -239,6 +242,76 @@ class FallbackDrawingTests(unittest.TestCase):
             device.draw_paths([[(1, 1), (2, 2)]])
         self.assertEqual(started[0], device)
         self.assertEqual(device.scripts, [])
+
+    def test_the_injector_waits_rather_than_queueing_the_whole_drawing(self):
+        """Stop can only work if the host has not already sent everything.
+
+        Every wait in a stroke happens on the phone, so writing one costs
+        nothing and an unbounded loop hands over the entire drawing in a
+        fraction of a second. The host then finishes while the device is still
+        drawing out of a buffer nothing can reach, and Stop does nothing at all.
+        """
+        device = make_device(raw=False)
+        events = []
+
+        class Stub:
+            def __init__(self, owner, jar=None):
+                pass
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                return None
+
+            def stroke(self, points, pacing=None, rng=None):
+                events.append("stroke")
+                return 300.0  # more than the look-ahead budget, on its own
+
+            def pause(self, millis):
+                return 0.0
+
+            def sync(self, timeout=600.0):
+                events.append("sync")
+
+        paths = [[(1, 1), (2, 2)], [(3, 3), (4, 4)], [(5, 5), (6, 6)]]
+        with unittest.mock.patch("mthread.device.TouchInjector", Stub):
+            device.draw_paths(paths)
+
+        # A wait after each stroke, because each one exceeds the budget alone.
+        self.assertEqual(events, ["stroke", "sync", "stroke", "sync",
+                                  "stroke", "sync", "sync"])
+
+    def test_stopping_leaves_the_rest_of_the_drawing_unsent(self):
+        device = make_device(raw=False)
+        drawn = []
+
+        class Stub:
+            def __init__(self, owner, jar=None):
+                pass
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                return None
+
+            def stroke(self, points, pacing=None, rng=None):
+                drawn.append(points[0])
+                return 300.0
+
+            def pause(self, millis):
+                return 0.0
+
+            def sync(self, timeout=600.0):
+                pass
+
+        paths = [[(index, index), (index + 1, index + 1)] for index in range(10)]
+        with unittest.mock.patch("mthread.device.TouchInjector", Stub):
+            sent = device.draw_paths(paths, should_continue=lambda: len(drawn) < 3)
+
+        self.assertEqual(sent, 3)
+        self.assertEqual(len(drawn), 3)
 
     def test_a_refusing_injector_drops_through_to_input(self):
         """Nothing guarantees app_process will run a jar for us. The slow path
