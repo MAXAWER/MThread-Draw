@@ -71,7 +71,7 @@ of the code.
 
 The packaged builds include Google's Android platform-tools (`adb`) under its
 own terms, with its `NOTICE.txt` alongside; Python, OpenCV, NumPy, Pillow and
-customtkinter keep their own licences. Those are aggregated with this software,
+Pillow keep their own licences. Those are aggregated with this software,
 not part of it.
 
 ### No warranty
@@ -123,7 +123,7 @@ Open Source Initiative. На практике это значит:
 ### Сторонние компоненты
 
 В собранных версиях лежит `adb` от Google на своих условиях, вместе с его
-`NOTICE.txt`; Python, OpenCV, NumPy, Pillow и customtkinter остаются под своими
+`NOTICE.txt`; Python, OpenCV, NumPy и Pillow остаются под своими
 лицензиями. Они соседствуют с этой программой, но её частью не являются.
 
 ### Гарантий нет

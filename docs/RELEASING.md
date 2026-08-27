@@ -17,8 +17,8 @@
 | Artifact | Built on |
 |---|---|
 | `MThread Draw-<version>-x64.msi`, and the same app as a `.zip` | windows-latest |
-| `MThread Draw-<version>-arm64.dmg` | macos-latest |
-| `MThread Draw-<version>-x64.dmg` | macos-13 |
+| `MThreadDraw-<version>-arm64.dmg` | macos-latest |
+| `MThreadDraw-<version>-x64.dmg` | macos-15-intel |
 | sdist and wheel | ubuntu-latest |
 
 Tags must start with `v`. Anything else is ignored by the workflow. The same
