@@ -27,6 +27,18 @@ ROOT = Path(__file__).resolve().parent.parent
 DIST = ROOT / "dist"
 PROJECT = ROOT / "macos"
 
+# Where build_app.py leaves the engine. Imported rather than repeated: the two
+# scripts disagreeing about it is what shipped an empty application.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from build_app import STAGE  # noqa: E402
+
+
+def find_engine() -> Path | None:
+    for candidate in (STAGE / "mthread-draw-engine", DIST / "mthread-draw-engine"):
+        if candidate.is_dir():
+            return candidate
+    return None
+
 BUNDLE_ID = "io.github.maxawer.mthread-draw"
 
 
@@ -86,7 +98,7 @@ def make_icon() -> Path | None:
     return icns
 
 
-def assemble(binary: Path) -> Path:
+def assemble(binary: Path, allow_no_engine: bool = False) -> Path:
     app = DIST / "MThreadDraw.app"
     if app.exists():
         shutil.rmtree(app)
@@ -123,13 +135,19 @@ def assemble(binary: Path) -> Path:
         plist["CFBundleIconFile"] = "MThreadDraw"
     (contents / "Info.plist").write_bytes(plistlib.dumps(plist))
 
-    engine = DIST / "mthread-draw-engine"
-    if engine.is_dir():
+    engine = find_engine()
+    if engine is not None:
         shutil.copytree(engine, contents / "Resources" / "engine")
         print(f"  engine folded in from {engine}")
+    elif allow_no_engine:
+        print("  building without the engine, as asked: this bundle only runs "
+              "from a source checkout")
     else:
-        print("  no engine in dist/: build it first with tools/build_app.py, or the "
-              "app will look for a source checkout")
+        raise SystemExit(
+            "no engine found - run tools/build_app.py first. "
+            "Refusing rather than warning: a bundle without the engine looks "
+            "finished, weighs 300 KB, and does nothing on a machine that has no "
+            "checkout of this repository. Pass --no-engine if that is what you want.")
 
     size = sum(f.stat().st_size for f in app.rglob("*") if f.is_file())
     print(f"built {app} ({size // 1024 // 1024} MB)")
@@ -159,13 +177,15 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--dmg", action="store_true", help="also build the disk image")
+    parser.add_argument("--no-engine", action="store_true",
+                        help="build the window alone, for a source checkout")
     args = parser.parse_args()
 
     if sys.platform != "darwin":
         raise SystemExit("the macOS front end only builds on macOS")
 
     DIST.mkdir(exist_ok=True)
-    app = assemble(build_binary())
+    app = assemble(build_binary(), allow_no_engine=args.no_engine)
     if args.dmg:
         build_dmg(app)
     return 0
