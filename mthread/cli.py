@@ -88,6 +88,69 @@ def _cmd_play(args) -> int:
     return 0
 
 
+def _placement_from(args):
+    """The placement options every drawing command shares."""
+    from .placement import Placement
+    return Placement(
+        centre=(args.x, args.y),
+        scale=args.scale,
+        rotation=args.rotate,
+        flip_x=args.flip_x,
+        flip_y=args.flip_y,
+    )
+
+
+def _add_placement_options(command) -> None:
+    command.add_argument("--scale", type=float, default=1.0,
+                         help="size, where 1.0 fills the screen with a margin")
+    command.add_argument("--rotate", type=float, default=0.0, metavar="DEGREES")
+    command.add_argument("--flip-x", action="store_true", help="mirror left to right")
+    command.add_argument("--flip-y", action="store_true", help="mirror top to bottom")
+    command.add_argument("--x", type=float, default=0.5, metavar="0..1",
+                         help="where the middle lands across the screen")
+    command.add_argument("--y", type=float, default=0.5, metavar="0..1")
+    command.add_argument("--margin", type=float, default=0.06)
+    command.add_argument("--speed", type=float, default=1.0)
+    command.add_argument("--human", type=float, default=0.0,
+                         help="0 draws mechanically; 1 to 3 like a hand")
+
+
+def _draw_unit_paths(args, paths, what: str) -> int:
+    """Place paths given in a 0..1 square onto the screen, and draw them."""
+    from .placement import place_on_screen
+
+    device = Device(args.serial)
+    width, height = device.screen_size
+    placed = place_on_screen(paths, width, height, _placement_from(args),
+                             margin=args.margin)
+    points = sum(len(path) for path in placed)
+    print(f"{what}: {len(placed)} strokes, {points} points on {width}x{height}")
+
+    drawn = device.draw_paths(placed, speed=args.speed, human=args.human)
+    print(f"drawn {drawn} strokes")
+    return 0
+
+
+def _cmd_shape(args) -> int:
+    from .shapes import SHAPES
+
+    maker = SHAPES[args.shape]
+    if args.shape == "star":
+        paths = maker(points=args.points)
+    elif args.shape == "polygon":
+        paths = maker(sides=args.points)
+    else:
+        paths = maker()
+    return _draw_unit_paths(args, paths, args.shape)
+
+
+def _cmd_text(args) -> int:
+    from .shapes import text
+
+    paths = text(args.words, font=args.font, size=args.size)
+    return _draw_unit_paths(args, paths, f"text {args.words!r}")
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="mthread", description=__doc__)
     parser.add_argument("--version", action="version", version=f"mthread {__version__}")
@@ -108,6 +171,24 @@ def build_parser() -> argparse.ArgumentParser:
     play.add_argument("--speed", type=float, default=1.0)
     play.add_argument("--repeat", type=int, default=1)
     play.set_defaults(func=_cmd_play)
+
+    # Drawing something without preparing a picture first. A heart is a
+    # parametric curve; there is no reason to make anyone find a JPEG of one.
+    from .shapes import SHAPES
+    shape = sub.add_parser("shape", help="draw a shape: " + ", ".join(SHAPES))
+    shape.add_argument("shape", choices=sorted(SHAPES))
+    shape.add_argument("--points", type=int, default=5,
+                       help="points on a star, or sides on a polygon")
+    _add_placement_options(shape)
+    shape.set_defaults(func=_cmd_shape)
+
+    words = sub.add_parser("text", help="draw text in any font on the machine")
+    words.add_argument("words")
+    words.add_argument("--font", help="a font file, or a name the system knows")
+    words.add_argument("--size", type=int, default=220,
+                       help="pixels to render at before tracing; larger is smoother")
+    _add_placement_options(words)
+    words.set_defaults(func=_cmd_text)
 
     return parser
 
