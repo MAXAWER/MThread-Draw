@@ -118,11 +118,9 @@ final class Engine {
             group.addTask { [weak self] in
                 try await Task.sleep(for: .seconds(30))
                 let detail = self?.lastErrors ?? ""
-                throw EngineError.notStarted(detail.isEmpty
-                    ? "It produced no output in thirty seconds."
-                    : "It produced no output in thirty seconds.
-
-\(detail)")
+                let complaint = "It produced no output in thirty seconds."
+                throw EngineError.notStarted(
+                    detail.isEmpty ? complaint : complaint + "\n\n" + detail)
             }
             try await group.next()
             group.cancelAll()
