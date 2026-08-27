@@ -26,7 +26,7 @@ ROOT = Path(SPECPATH).parent
 IS_WINDOWS = sys.platform.startswith("win")
 IS_MAC = sys.platform == "darwin"
 
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 
 datas = collect_data_files("customtkinter")
 datas += [(str(ROOT / "mthread" / "injector.jar"), "mthread")]

@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 1.2.0
+
+The release that made the window an editor rather than a loader.
 
 - **Layers.** Several pictures can be loaded and arranged against each other
   before anything is drawn, each with its own placement and its own tracer

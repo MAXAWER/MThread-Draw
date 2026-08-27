@@ -36,7 +36,7 @@ from .recorder import Recorder, parse_getevent_line
 from .session import InputEvent, Session
 from .touch import TouchDevice, build_stroke_events, parse_getevent_pl, pick_touchscreen
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 
 #: AGPL-3.0, with a commercial licence available from the author for use in
 #: products that will not publish their source. See TERMS.md.
