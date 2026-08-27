@@ -183,6 +183,7 @@ final class Model: ObservableObject {
     func stop() { engine.post("stop") }
 }
 
+@MainActor
 struct ContentView: View {
     @StateObject private var model = Model()
 
@@ -227,7 +228,9 @@ struct ContentView: View {
                             Text("Portraits, animals, nature").tag("flow")
                         }
                         .labelsHidden()
-                        .onChange(of: model.tracer) { Task { await model.preview() } }
+                        // The closure takes the new value: the argument-less form of onChange
+                        // is macOS 14, and this app runs on 13.
+                        .onChange(of: model.tracer) { _ in Task { await model.preview() } }
 
                         slider("How much detail", value: $model.detail, range: 1...10,
                                caption: detailWord(model.detail)) {
@@ -294,7 +297,7 @@ struct ContentView: View {
                 .padding(.horizontal, 10).padding(.vertical, 6)
                 .background {
                     RoundedRectangle(cornerRadius: 8)
-                        .fill(index == model.current ? .white.opacity(0.14) : .clear)
+                        .fill(Color.white.opacity(index == model.current ? 0.14 : 0))
                 }
                 .opacity(layer.visible ? 1 : 0.45)
                 .onTapGesture { Task { await model.run("layer_select", ["index": index]) } }

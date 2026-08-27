@@ -90,7 +90,14 @@ final class Engine {
         process.arguments = arguments
         process.standardInput = input
         process.standardOutput = output
-        process.standardError = Pipe()
+        // Drained, not ignored. A pipe nobody reads fills at 64 KB and the
+        // next write blocks for ever, so the engine would hang rather than
+        // fail - and the last few lines are what says why it did.
+        let errors = Pipe()
+        process.standardError = errors
+        errors.fileHandleForReading.readabilityHandler = { [weak self] handle in
+            self?.absorbErrors(handle.availableData)
+        }
         if let repository = Engine.findRepository() {
             process.currentDirectoryURL = repository
         }
@@ -108,9 +115,14 @@ final class Engine {
                     self?.readyContinuation = continuation
                 }
             }
-            group.addTask {
+            group.addTask { [weak self] in
                 try await Task.sleep(for: .seconds(30))
-                throw EngineError.notStarted("It produced no output in thirty seconds.")
+                let detail = self?.lastErrors ?? ""
+                throw EngineError.notStarted(detail.isEmpty
+                    ? "It produced no output in thirty seconds."
+                    : "It produced no output in thirty seconds.
+
+\(detail)")
             }
             try await group.next()
             group.cancelAll()
@@ -118,6 +130,14 @@ final class Engine {
     }
 
     // MARK: - reading
+
+    /// The tail of the engine's standard error, for when it dies without a word.
+    private(set) var lastErrors = ""
+
+    private func absorbErrors(_ data: Data) {
+        guard !data.isEmpty, let text = String(data: data, encoding: .utf8) else { return }
+        lastErrors = String((lastErrors + text).suffix(4000))
+    }
 
     private func absorb(_ data: Data) {
         guard !data.isEmpty else { return }
@@ -179,10 +199,7 @@ final class Engine {
     /// Send one request and wait for its reply.
     @discardableResult
     func call(_ operation: String, _ arguments: [String: Any] = [:]) async throws -> [String: Any] {
-        lock.lock()
-        nextId += 1
-        let id = nextId
-        lock.unlock()
+        let id = claimId()
 
         var request: [String: Any] = arguments
         request["id"] = id
@@ -190,11 +207,27 @@ final class Engine {
         let line = try JSONSerialization.data(withJSONObject: request) + Data([0x0A])
 
         return try await withCheckedThrowingContinuation { continuation in
-            lock.lock()
-            pending[id] = continuation
-            lock.unlock()
+            register(id, continuation)
             input.fileHandleForWriting.write(line)
         }
+    }
+
+    // Both of these exist to be synchronous. Taking a lock directly in an async
+    // function is a warning today and an error under Swift 6, because the
+    // thread that resumes after an await need not be the one that took it;
+    // inside a plain method there is no await to move, so the pair is safe.
+    private func claimId() -> Int {
+        lock.lock()
+        defer { lock.unlock() }
+        nextId += 1
+        return nextId
+    }
+
+    private func register(_ id: Int,
+                          _ continuation: CheckedContinuation<[String: Any], Error>) {
+        lock.lock()
+        defer { lock.unlock() }
+        pending[id] = continuation
     }
 
     /// Send a request without waiting - for stop, which cannot queue.

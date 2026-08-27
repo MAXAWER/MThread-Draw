@@ -55,14 +55,17 @@ if [ -z "$TOKEN" ]; then
     exit 1
 fi
 
+# --location because the log endpoints answer with a redirect to wherever the
+# logs are actually stored, and a job log is the only way to see why a build
+# failed on a machine you do not have.
 if [ -n "$BODY" ]; then
-    curl -sS -X "$METHOD" \
+    curl -sS --location -X "$METHOD" \
         -H "Authorization: Bearer ${TOKEN}" \
         -H "Accept: application/vnd.github+json" \
         -d "$BODY" \
         "${API}${PATH_UNDER_REPO}"
 else
-    curl -sS -X "$METHOD" \
+    curl -sS --location -X "$METHOD" \
         -H "Authorization: Bearer ${TOKEN}" \
         -H "Accept: application/vnd.github+json" \
         "${API}${PATH_UNDER_REPO}"
