@@ -13,10 +13,12 @@ let package = Package(
     name: "MThreadDraw",
     platforms: [.macOS(.v13)],
     targets: [
+        // No file here is called main.swift, which is what lets @main in
+        // MThreadDrawApp.swift stand: a file by that name is top-level code,
+        // and the two cannot coexist.
         .executableTarget(
             name: "MThreadDraw",
-            path: "Sources/MThreadDraw",
-            swiftSettings: [.unsafeFlags(["-parse-as-library"])]
+            path: "Sources/MThreadDraw"
         )
     ]
 )

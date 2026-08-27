@@ -29,6 +29,11 @@ on:
       - "tools/build_macos.py"
       - "tools/make_icon.py"
       - ".github/workflows/release.yml"
+      # The front ends themselves. Neither is built by CI, so a change here
+      # reaches a compiler for the first time in this workflow - and the macOS
+      # one cannot be built anywhere else in this project at all.
+      - "macos/**"
+      - "winui/**"
   workflow_dispatch:
 
 permissions:
