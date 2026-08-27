@@ -1,5 +1,33 @@
 # Changelog
 
+## 1.3.0
+
+The release where both windows became native and the installer started
+saying something.
+
+- **The Windows window is WinUI 3, and it is the one that gets installed.**
+  Until now the installer carried the Tk window, so installing MThread Draw on
+  Windows got the old interface, slowly, and the native one was only in a zip
+  nobody had a reason to open. The Tk window is gone: `mthread_draw/app.py`,
+  the `gui` extra and the customtkinter dependency with it. Linux keeps the
+  command line and the library.
+- **A macOS window, in SwiftUI.** Frosted glass over `NSVisualEffectView` with
+  behind-window blending, the same phone view with drag placement and the same
+  eraser, driving the same engine over a pipe. `tools/build_macos.py`
+  assembles the bundle around `swift build` and makes the disk image.
+- **The installer has a user interface.** Without one an MSI shows "gathering
+  required information", installs, and closes without a word, so a successful
+  install cannot be told apart from a failed one - and it was read as failure.
+  Now: welcome, where to put it, progress, finished, and a ticked offer to
+  start the program. Apps & features shows the install folder, and a new
+  version replaces the old one instead of sitting beside it.
+- **Builds happen outside the checkout.** This tree lives in OneDrive on one
+  machine, and a sync client holds handles on files while it uploads them.
+  Writing several thousand of them into a synced folder failed at a different
+  step every time, always with an access denied that named a file rather than
+  the cause. Everything is staged in temp; only the finished installer and zip
+  are copied into `dist/`.
+
 ## 1.2.0
 
 The release that made the window an editor rather than a loader.
