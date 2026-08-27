@@ -1,7 +1,7 @@
-# Everything needed to run the desktop app.
+# Everything the engine needs. The window is native on each platform and
+# brings its own dependencies: WinUI 3 on Windows, SwiftUI on macOS.
 # The mthread library alone needs nothing beyond the standard library:
 #   pip install -e .
-customtkinter>=5.2,<6
 opencv-python>=4.5
 numpy>=1.21
 Pillow>=9.0

@@ -65,7 +65,11 @@ most people twenty.
 |---|---|
 | **Windows** | [**Download the installer**](https://github.com/MAXAWER/MThread-Draw/releases/latest) — `MThreadDraw-x.y.z-x64.msi`. Installs like any other program, Start Menu entry and uninstaller included. |
 | **macOS** | [**Download the app**](https://github.com/MAXAWER/MThread-Draw/releases/latest) — `.dmg` for Apple Silicon or Intel. Drag it to Applications. |
-| **Linux** | Run from source; three commands, [below](#from-source). |
+| **Linux** | The command line, from source; three commands, [below](#from-source). |
+
+Both windows are native: WinUI 3 on Windows, SwiftUI on macOS, and each drives
+the same engine over a pipe. Linux has the command line and the library, which
+is everything except a window.
 
 **Nothing else to install.** Python, OpenCV and **adb** all travel inside the
 application — no Android SDK, no platform-tools download, no `PATH` to edit.
@@ -447,6 +451,7 @@ explained in plain English and Russian in **[TERMS.md](TERMS.md)**.
 |---|---|
 | **Windows** | [**Скачать установщик**](https://github.com/MAXAWER/MThread-Draw/releases/latest) — `MThreadDraw-x.y.z-x64.msi`. Ставится как обычная программа, с ярлыком в меню «Пуск» и деинсталлятором. |
 | **macOS** | [**Скачать приложение**](https://github.com/MAXAWER/MThread-Draw/releases/latest) — `.dmg` для Apple Silicon или Intel, перетащить в Applications. |
+| **Linux** | Командная строка из исходников. Окна для Linux нет: оба интерфейса нативные — WinUI 3 и SwiftUI. |
 | **Linux** | Из исходников, три команды — [ниже](#из-исходников). |
 
 **Больше ничего ставить не нужно.** Python, OpenCV и **adb** лежат внутри самого

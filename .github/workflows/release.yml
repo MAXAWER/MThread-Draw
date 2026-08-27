@@ -4,7 +4,8 @@ name: Release
 #
 #     git tag v1.1.0 && git push origin v1.1.0
 #
-# which builds a Windows .msi, macOS .dmg for both architectures, the sdist and
+# which builds the Windows installer, a macOS app and disk image for both
+# architectures, the sdist and
 # the wheel, and attaches them all to a GitHub release. Each packaged build runs
 # its own self-test first, so an incomplete bundle fails here rather than in
 # somebody's dialog box.
@@ -25,7 +26,7 @@ on:
       - "packaging/**"
       - "tools/build_app.py"
       - "tools/fetch_platform_tools.py"
-      - "tools/pyinstaller_entry.py"
+      - "tools/build_macos.py"
       - "tools/make_icon.py"
       - ".github/workflows/release.yml"
   workflow_dispatch:
@@ -59,11 +60,11 @@ jobs:
       - name: Install build dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e ".[gui]" pyinstaller
+          python -m pip install -e ".[draw]" pyinstaller
           dotnet tool install --global wix --version ${{ env.WIX_VERSION }}
 
-      - name: Build app, installer, WinUI front end and archive
-        run: python tools/build_app.py --msi --winui --archive
+      - name: Build the engine, the front end and the installer
+        run: python tools/build_app.py --msi
 
       - uses: actions/upload-artifact@v4
         with:
@@ -97,10 +98,13 @@ jobs:
       - name: Install build dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e ".[gui]" pyinstaller
+          python -m pip install -e ".[draw]" pyinstaller
 
-      - name: Build app and disk image
-        run: python tools/build_app.py --dmg
+      - name: Build the engine
+        run: python tools/build_app.py
+
+      - name: Build the front end and its disk image
+        run: python tools/build_macos.py --dmg
 
       - uses: actions/upload-artifact@v4
         with:
@@ -149,8 +153,7 @@ jobs:
 
             | | |
             |---|---|
-            | **Windows** | `MThreadDraw-*-x64.msi` — installs like any other program, Start Menu entry included. `MThreadDraw-*-windows-x64.zip` is the same app with no installer. |
-            | **Windows, native interface** | `MThreadDraw-WinUI-*-x64.zip` — the WinUI 3 front end. Unzip anywhere and run `MThreadDraw.exe`; it needs no runtime installed and carries its own copy of the engine. Larger, and the newer of the two. |
+            | **Windows** | `MThreadDraw-*-x64.msi` — installs the native WinUI 3 application, Start Menu entry included. `MThreadDraw-WinUI-*-x64.zip` is the same application with no installer: unzip anywhere and run `MThreadDraw.exe`. |
             | **macOS** | `MThreadDraw-*-arm64.dmg` for Apple Silicon, `MThreadDraw-*-x64.dmg` for Intel. Drag it to Applications. |
             | **Linux** | Run from source — see the [README](https://github.com/MAXAWER/MThread-Draw#install-variants). |
 

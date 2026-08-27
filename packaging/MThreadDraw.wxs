@@ -1,20 +1,31 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Windows installer definition, built with WiX 5:
+  Windows installer definition, built with WiX 5 and its UI extension.
+  `python tools/build_app.py` with the msi flag does the whole thing: engine,
+  front end, installer.
 
-      wix build packaging/MThreadDraw.wxs -arch x64 ^
-          -d Version=1.1.0 -d SourceDir=dist/MThreadDraw -d IconFile=packaging/mthreaddraw.ico ^
-          -o dist/MThreadDraw-1.1.0-x64.msi
+  It installs the WinUI 3 application: the native Windows window with the
+  Python engine folded into it. There is nothing else to install afterwards.
 
-  `tools/build_app.py` with the msi flag does exactly that after PyInstaller
-  has run.
+  Two things here are load-bearing, and both were learned the hard way.
+
+  A UI, because there did not use to be one. Without it an MSI shows
+  "gathering required information", installs, and closes without a word, so a
+  successful install is indistinguishable from a failed one and everybody who
+  ran it reasonably concluded it was broken. Now: welcome, install location,
+  progress, done, and an offer to start the program.
+
+  No double dash anywhere in these comments. XML forbids it inside a comment,
+  and naming a command line flag in prose is enough for WiX to refuse the file
+  with error WIX0104.
 
   The UpgradeCode must never change: it is what tells Windows that a new MSI
-  replaces the installed MThreadDraw rather than sitting beside it. It is derived
-  from the project URL (uuid5 of https://github.com/MAXAWER/MThread-Draw) so it
-  can be regenerated if it is ever lost.
+  replaces the installed MThread Draw rather than sitting beside it. It is
+  derived from the project URL (uuid5 of
+  https://github.com/MAXAWER/MThread-Draw) so it can be regenerated if lost.
 -->
-<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
 
   <Package
       Name="MThread Draw"
@@ -30,7 +41,7 @@
         AllowSameVersionUpgrades="yes"
         DowngradeErrorMessage="A newer version of MThread Draw is already installed. Remove it first from Settings, Installed apps." />
 
-    <MediaTemplate EmbedCab="yes" />
+    <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
 
     <Icon Id="MThreadDrawIcon" SourceFile="$(var.IconFile)" />
     <Property Id="ARPPRODUCTICON" Value="MThreadDrawIcon" />
@@ -51,13 +62,57 @@
       <ComponentGroupRef Id="ApplicationShortcuts" />
     </Feature>
 
-    <!-- Offer to start the app when the installer finishes. -->
+    <!--
+      Welcome, where to put it, progress, finished. WixUI_InstallDir normally
+      puts a licence agreement between the first two; the two Publish overrides
+      below step past it. AGPL-3.0 grants permission rather than withholding it,
+      so there is nothing for anyone to agree to before installing, and a dialog
+      that says otherwise would be theatre. The licence travels in the install
+      folder and is linked from the finish dialog instead.
+    -->
+    <ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER" />
+    <UI>
+      <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog"
+               Value="InstallDirDlg" Order="2" Condition="NOT Installed" />
+      <Publish Dialog="InstallDirDlg" Control="Back" Event="NewDialog"
+               Value="WelcomeDlg" Order="2" Condition="NOT Installed" />
+    </UI>
+
+    <!-- Apps & features shows the folder rather than a blank line. -->
+    <SetProperty Id="ARPINSTALLLOCATION" Value="[INSTALLFOLDER]" After="CostFinalize" />
+
+    <!--
+      The finish dialog offers to start it. Impersonate="yes" matters: the
+      installer is elevated and the program must not be, or it would run as
+      administrator and its file dialogs would look at the wrong desktop.
+    -->
     <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Start MThread Draw" />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1" />
+    <!--
+      By path rather than by file id: the harvest below generates ids nothing
+      here can predict. A plain exe action rather than the utility extension's
+      shell helper, which needs a reference to a binary inside the extension
+      that only the extension knows the name of.
+
+      asyncNoWait so the installer finishes instead of waiting for the program
+      to be closed again.
+    -->
+    <CustomAction Id="StartApplication" Directory="INSTALLFOLDER"
+                  ExeCommand="&quot;[INSTALLFOLDER]MThreadDraw.exe&quot;"
+                  Impersonate="yes" Return="asyncNoWait" />
+    <UI>
+      <Publish Dialog="ExitDialog" Control="Finish" Event="DoAction"
+               Value="StartApplication"
+               Condition="WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 AND NOT Installed" />
+    </UI>
   </Package>
 
   <Fragment>
-    <!-- Harvested at build time: PyInstaller's output is a few hundred files
-         and listing them by hand would be a maintenance trap. -->
+    <!--
+      Harvested at build time. The published front end is several thousand
+      files - the .NET runtime, the Windows App SDK and the packaged engine -
+      and listing them by hand would be a maintenance trap.
+    -->
     <ComponentGroup Id="ApplicationFiles" Directory="INSTALLFOLDER">
       <Files Include="$(var.SourceDir)\**" />
     </ComponentGroup>

@@ -40,10 +40,9 @@ dependencies = []
 
 [project.optional-dependencies]
 draw = ["opencv-python>=4.5", "numpy>=1.21", "Pillow>=9.0"]
-gui = ["mthread-draw[draw]", "customtkinter>=5.2"]
 bg = ["rembg>=2.0"]
 dev = ["pytest>=7.0"]
-all = ["mthread-draw[gui,bg]"]
+all = ["mthread-draw[draw,bg]"]
 
 [project.urls]
 Homepage = "https://github.com/MAXAWER/MThread-Draw"
@@ -54,9 +53,6 @@ Terms = "https://github.com/MAXAWER/MThread-Draw/blob/main/TERMS.md"
 
 [project.scripts]
 mthread = "mthread.cli:main"
-
-[project.gui-scripts]
-mthread_draw = "mthread_draw.app:main"
 
 [tool.setuptools]
 packages = ["mthread", "mthread_draw"]
