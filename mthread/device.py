@@ -590,5 +590,22 @@ class Device:
     # ----------------------------------------------------------------- streams
 
     def stream_getevent(self):
-        """Start ``getevent -t`` and return the live process for the recorder."""
-        return popen_adb(self.adb_path, self._args(["shell", "getevent", "-t"]))
+        """Start ``getevent -t`` and return the live process for the recorder.
+
+        The two ``-t`` before ``shell`` force a pty, and both are needed. Without
+        one, getevent's stdout on the device is a pipe, so its own libc buffering
+        holds output back in four-kilobyte blocks: a short recording ends
+        entirely inside that buffer and arrives only when the process exits, by
+        which time the recording has been stopped and looks empty. A minute of
+        touching works and five seconds of it does not, which is a memorable way
+        to conclude that recording is broken.
+
+        One ``-t`` is not enough: adb refuses to allocate a pty when its own
+        stdin is not a terminal, which it never is for a subprocess, and says so
+        on stderr rather than failing. Two forces it, the way ``ssh -tt`` does.
+
+        Note this is the opposite of what the screen mirror needs, which asks for
+        no pty because a pty would corrupt the JPEG it carries.
+        """
+        return popen_adb(self.adb_path,
+                         self._args(["shell", "-t", "-t", "getevent", "-t"]))

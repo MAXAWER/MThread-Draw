@@ -48,7 +48,8 @@ class Recorder:
     Args:
         device: A connected :class:`~mthread.device.Device`.
         only_devices: Restrict capture to these ``/dev/input`` paths. Defaults to
-            the detected touchscreen so stray button presses are not recorded.
+            all of them, the node Android calls the touchscreen not always being
+            the one touches arrive on.
         on_event: Optional callback invoked for every captured event, useful for
             driving a live counter in a UI.
     """
@@ -56,11 +57,14 @@ class Recorder:
     def __init__(self, device, only_devices=None, on_event: Callable[[InputEvent], None] | None = None):
         self.device = device
         self.on_event = on_event
-        if only_devices is None:
-            try:
-                only_devices = [device.touch_device.path]
-            except Exception:
-                only_devices = None
+        # Everything, unless a caller names the nodes it wants.
+        #
+        # This used to default to the touchscreen Android reports, which is
+        # wrong wherever that is not the node touches actually arrive on - an
+        # emulator has a dozen identical virtio multi-touch devices and uses one
+        # of the others, so recording produced a file with nothing in it and no
+        # error to explain why. The gesture decoder ignores everything that is
+        # not a touch, so the cost of listening to all of them is a few bytes.
         self.only_devices = set(only_devices) if only_devices else None
 
         self._process = None
