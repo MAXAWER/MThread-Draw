@@ -2,6 +2,28 @@
 
 ## Unreleased
 
+- **Layers.** Several pictures can be loaded and arranged against each other
+  before anything is drawn, each with its own placement and its own tracer
+  settings. Hide one, reorder them, remove one; what is drawn is every visible
+  layer in order.
+- **An eraser.** Drag across the live view with the eraser on and the strokes
+  under the cursor come out. Which strokes are near enough is decided after
+  placement, because the cursor is over a picture of the phone rather than over
+  the tracer's coordinate space. Re-tracing forgets erasures rather than
+  misapplying them: stroke five of one tracing is not stroke five of the next.
+- **Flip, and buttons for the transforms that are not gestures.** `Flip`,
+  `Fit` and `Undo erase` sit under the phone; `Placement.mirrored` flips rather
+  than sets, so flipping twice is not flipping.
+- **A screenshot taken by hand can stand in for capture.** When ADB capture
+  fails there is otherwise nothing to place a drawing against. A still picture
+  does not update, but its proportions are the ones that matter, and placement
+  now works with no phone attached at all - so a drawing can be arranged before
+  the cable is anywhere near.
+- **Shapes and text from the command line**, with nothing to prepare:
+  `mthread shape heart`, `mthread shape star --points 7 --rotate 20`,
+  `mthread text "hello" --font arial.ttf`. Seven shapes, and text in any font
+  the machine has.
+
 - **Place the drawing by hand.** Drag it over the live view, wheel to resize,
   Shift and wheel to turn, double-click to fit again. `Placement` holds the
   position in fractions of the screen and degrees, so it survives the phone

@@ -250,6 +250,8 @@ public sealed partial class MainWindow : Window
         PhoneFrame.Height = frameHeight;
     }
 
+    private void ShowFrameFile(string path) => ShowFrame(path, 0, 0);
+
     private void ShowFrame(string path, int width, int height)
     {
         ShapeToDevice(width, height);
@@ -297,11 +299,8 @@ public sealed partial class MainWindow : Window
 
         try
         {
-            var result = await _engine.CallAsync("load_image", new { path = file.Path });
-            _imageLoaded = true;
-            ImageText.Text = $"{Path.GetFileName(file.Path)} · " +
-                             $"{result["width"]!.GetValue<int>()}×{result["height"]!.GetValue<int>()}";
-            await RefreshPreviewAsync();
+            ShowLayers(await _engine.CallAsync("load_image", new { path = file.Path }));
+            await RefreshEstimateAsync();
         }
         catch (EngineException error)
         {
@@ -322,11 +321,187 @@ public sealed partial class MainWindow : Window
 
         try
         {
-            var result = await _engine.CallAsync("load_image", new { path = named });
-            _imageLoaded = true;
-            ImageText.Text = $"{Path.GetFileName(named)} · " +
-                             $"{result["width"]!.GetValue<int>()}×{result["height"]!.GetValue<int>()}";
-            await RefreshPreviewAsync();
+            ShowLayers(await _engine.CallAsync("load_image", new { path = named }));
+            await RefreshEstimateAsync();
+        }
+        catch (EngineException error)
+        {
+            StatusText.Text = error.Message;
+        }
+    }
+
+    // ---------------------------------------------------------------- layers
+
+    private bool _fillingLayerList;
+
+    /// <summary>Redraw the layer list and the overlay from one engine reply.</summary>
+    /// <remarks>
+    /// Every layer operation answers with the whole state rather than a delta.
+    /// It is a few hundred bytes and it removes an entire class of bug, the one
+    /// where the list and the engine disagree about which layer is selected.
+    /// </remarks>
+    private void ShowLayers(JsonNode result)
+    {
+        var layers = result["layers"]?.AsArray();
+        if (layers is null)
+        {
+            return;
+        }
+
+        _fillingLayerList = true;
+        LayerList.Items.Clear();
+        foreach (var layer in layers)
+        {
+            var name = layer?["name"]?.GetValue<string>() ?? "?";
+            var strokes = layer?["strokes"]?.GetValue<int>() ?? 0;
+            var erased = layer?["erased"]?.GetValue<int>() ?? 0;
+            var visible = layer?["visible"]?.GetValue<bool>() ?? true;
+            var label = $"{name} · {strokes} strokes";
+            if (erased > 0)
+            {
+                label += $" · {erased} erased";
+            }
+            if (!visible)
+            {
+                label += " · hidden";
+            }
+            LayerList.Items.Add(new ListViewItem { Content = label, Opacity = visible ? 1.0 : 0.5 });
+        }
+
+        var current = result["current"]?.GetValue<int>() ?? 0;
+        if (current >= 0 && current < LayerList.Items.Count)
+        {
+            LayerList.SelectedIndex = current;
+        }
+        _fillingLayerList = false;
+
+        _imageLoaded = LayerList.Items.Count > 0;
+        var overlay = result["overlay"]?.GetValue<string>();
+        if (overlay is not null)
+        {
+            ShowOverlay(overlay);
+        }
+        else if (!_imageLoaded)
+        {
+            OverlayImage.Source = null;
+        }
+
+        ImageText.Text = _imageLoaded
+            ? $"{LayerList.Items.Count} layer(s) · {result["strokes"]!.GetValue<int>()} strokes, " +
+              $"{result["points"]!.GetValue<int>()} points"
+            : "No image loaded";
+
+        // The hint sits behind the overlay, so once there is a drawing to look
+        // at it shows through it. The status bar says the same thing anyway.
+        PreviewHint.Visibility = _imageLoaded || _connected
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+        UpdateButtons();
+    }
+
+    private async void OnLayerSelected(object sender, SelectionChangedEventArgs args)
+    {
+        if (_fillingLayerList || _engine is null || LayerList.SelectedIndex < 0)
+        {
+            return;
+        }
+        await Call("layer_select", new { index = LayerList.SelectedIndex });
+    }
+
+    private async void OnLayerRaise(object sender, RoutedEventArgs args) =>
+        await Call("layer_raise", new { });
+
+    private async void OnLayerRemove(object sender, RoutedEventArgs args) =>
+        await Call("layer_remove", new { });
+
+    private async void OnLayerHide(object sender, RoutedEventArgs args)
+    {
+        var hiding = (string)LayerHideButton.Content == "Hide";
+        LayerHideButton.Content = hiding ? "Show" : "Hide";
+        await Call("layer_visible", new { visible = !hiding });
+    }
+
+    /// <summary>Call an operation that answers with the whole layer state.</summary>
+    private async Task Call(string operation, object arguments)
+    {
+        if (_engine is null)
+        {
+            return;
+        }
+        try
+        {
+            ShowLayers(await _engine.CallAsync(operation, arguments));
+            await RefreshEstimateAsync();
+        }
+        catch (EngineException error)
+        {
+            StatusText.Text = error.Message;
+        }
+    }
+
+    // ----------------------------------------------------------------- tools
+
+    private bool _erasing;
+
+    private void OnToolChanged(object sender, RoutedEventArgs args)
+    {
+        _erasing = ReferenceEquals(sender, EraseToggle) && EraseToggle.IsChecked == true;
+        MoveToggle.IsChecked = !_erasing;
+        EraseToggle.IsChecked = _erasing;
+        PlaceHint.Text = _erasing
+            ? "Drag across strokes to take them out · Undo erase brings them back"
+            : "Drag to move it · wheel to resize · Shift and wheel to turn · double-click to fit";
+    }
+
+    private async void OnUndoErase(object sender, RoutedEventArgs args) =>
+        await Call("erase", new { undo = true });
+
+    private async void OnFlipX(object sender, RoutedEventArgs args) =>
+        await Call("place", new { flip_x = true });
+
+    private async void OnFlipY(object sender, RoutedEventArgs args) =>
+        await Call("place", new { flip_y = true });
+
+    private async void OnFit(object sender, RoutedEventArgs args) =>
+        await Call("place", new { reset = true });
+
+    /// <summary>Take a screenshot copied off the phone by hand.</summary>
+    /// <remarks>
+    /// Capture fails on some devices and in some emulators, and when it does
+    /// there is nothing to place a drawing against. A still picture of the same
+    /// screen does not update, but it is enough to arrange a drawing on.
+    /// </remarks>
+    private async void OnUseStill(object sender, RoutedEventArgs args)
+    {
+        if (_engine is null)
+        {
+            return;
+        }
+
+        var picker = new FileOpenPicker();
+        WinRT.Interop.InitializeWithWindow.Initialize(picker,
+            WinRT.Interop.WindowNative.GetWindowHandle(this));
+        picker.FileTypeFilter.Add(".png");
+        picker.FileTypeFilter.Add(".jpg");
+        picker.FileTypeFilter.Add(".jpeg");
+
+        var file = await picker.PickSingleFileAsync();
+        if (file is null)
+        {
+            return;
+        }
+
+        try
+        {
+            var result = await _engine.CallAsync("still", new { path = file.Path });
+            var width = result["width"]!.GetValue<int>();
+            var height = result["height"]!.GetValue<int>();
+            ShapeToDevice(width, height);
+            ShowFrameFile(file.Path);
+            PreviewHint.Visibility = Visibility.Collapsed;
+            StatusText.Text = $"Using {Path.GetFileName(file.Path)} as the screen, {width}×{height}. " +
+                              "It will not update; connect a device for the live view.";
+            ShowLayers(result);
         }
         catch (EngineException error)
         {
@@ -337,6 +512,7 @@ public sealed partial class MainWindow : Window
     // ------------------------------------------------------------- placement
 
     private bool _draggingDrawing;
+    private bool _erasingInFlight;
     private Windows.Foundation.Point _lastDrag;
     private double _pendingX, _pendingY, _pendingZoom = 1.0, _pendingTurn;
 
@@ -348,30 +524,76 @@ public sealed partial class MainWindow : Window
     /// </remarks>
     private readonly DispatcherTimer _placeDelay = new() { Interval = TimeSpan.FromMilliseconds(70) };
 
-    private void OnStagePressed(object sender, PointerRoutedEventArgs args)
+    private async void OnStagePressed(object sender, PointerRoutedEventArgs args)
     {
-        if (!_connected || !_imageLoaded || _drawing)
+        if (!_imageLoaded || _drawing)
         {
             return;
         }
         _draggingDrawing = true;
         _lastDrag = args.GetCurrentPoint(PhoneStage).Position;
         PhoneStage.CapturePointer(args.Pointer);
+        if (_erasing)
+        {
+            await EraseAtAsync(args);
+        }
     }
 
-    private void OnStageMoved(object sender, PointerRoutedEventArgs args)
+    private async void OnStageMoved(object sender, PointerRoutedEventArgs args)
     {
         if (!_draggingDrawing)
         {
             return;
         }
+        if (_erasing)
+        {
+            await EraseAtAsync(args);
+            return;
+        }
         var here = args.GetCurrentPoint(PhoneStage).Position;
         // In fractions of the phone's own picture, so a drag of an inch moves
         // the drawing the same share of the screen whatever the window size.
-        _pendingX += (here.X - _lastDrag.X) / Math.Max(1.0, PhoneFrame.ActualWidth);
-        _pendingY += (here.Y - _lastDrag.Y) / Math.Max(1.0, PhoneFrame.ActualHeight);
+        _pendingX += (here.X - _lastDrag.X) / Math.Max(1.0, PhoneScreen.ActualWidth);
+        _pendingY += (here.Y - _lastDrag.Y) / Math.Max(1.0, PhoneScreen.ActualHeight);
         _lastDrag = here;
         SchedulePlace();
+    }
+
+    /// <summary>Erase where the pointer is, in fractions of the phone's screen.</summary>
+    /// <remarks>
+    /// Measured against the screen area rather than the window, so the same
+    /// gesture erases the same strokes whatever size the window has been
+    /// dragged to, and whichever way up the phone is being held.
+    /// </remarks>
+    private async Task EraseAtAsync(PointerRoutedEventArgs args)
+    {
+        if (_engine is null || _erasingInFlight)
+        {
+            return;
+        }
+        var point = args.GetCurrentPoint(PhoneScreen).Position;
+        var x = point.X / Math.Max(1.0, PhoneScreen.ActualWidth);
+        var y = point.Y / Math.Max(1.0, PhoneScreen.ActualHeight);
+        if (x < 0 || x > 1 || y < 0 || y > 1)
+        {
+            return;
+        }
+
+        // One at a time: a drag reports faster than the engine can re-render an
+        // overlay, and queueing every report would run behind the mouse.
+        _erasingInFlight = true;
+        try
+        {
+            ShowLayers(await _engine.CallAsync("erase", new { x, y, radius = 0.025 }));
+        }
+        catch (EngineException error)
+        {
+            StatusText.Text = error.Message;
+        }
+        finally
+        {
+            _erasingInFlight = false;
+        }
     }
 
     private void OnStageReleased(object sender, PointerRoutedEventArgs args)
@@ -434,14 +656,16 @@ public sealed partial class MainWindow : Window
         {
             var result = await _engine.CallAsync("place",
                 reset ? new { reset = true } : (object)new { dx, dy, zoom, turn });
-            var overlay = result["overlay"]?.GetValue<string>();
-            if (overlay is not null)
+            ShowLayers(result);
+
+            var layers = result["layers"]?.AsArray();
+            var current = result["current"]?.GetValue<int>() ?? 0;
+            if (layers is not null && current < layers.Count)
             {
-                ShowOverlay(overlay);
+                PlaceHint.Text = $"{layers[current]!["scale"]!.GetValue<double>():0.00}× · " +
+                                 $"{layers[current]!["rotation"]!.GetValue<double>():0}° · " +
+                                 "drag to move · wheel to resize · Shift and wheel to turn";
             }
-            PlaceHint.Text = $"{result["scale"]!.GetValue<double>():0.00}× · " +
-                             $"{result["rotation"]!.GetValue<double>():0}° · " +
-                             "drag to move · wheel to resize · Shift and wheel to turn · double-click to fit";
         }
         catch (EngineException error)
         {
@@ -496,16 +720,10 @@ public sealed partial class MainWindow : Window
                 method = Tracer,
             });
 
-            var overlay = result["overlay"]?.GetValue<string>();
-            if (overlay is not null)
-            {
-                ShowOverlay(overlay);
-            }
-
+            ShowLayers(result);
             StatusText.Text = $"{result["strokes"]!.GetValue<int>()} strokes, " +
                               $"{result["points"]!.GetValue<int>()} points, traced in " +
                               $"{result["seconds"]!.GetValue<double>():0.0}s";
-            UpdateButtons();
             await RefreshEstimateAsync();
         }
         catch (EngineException error)
@@ -763,6 +981,13 @@ public sealed partial class MainWindow : Window
         LoadButton.IsEnabled = !_drawing;
         ConnectButton.IsEnabled = !_drawing;
         RecordButton.IsEnabled = _connected && !_drawing;
+        LayerRaiseButton.IsEnabled = LayerList.Items.Count > 1 && !_drawing;
+        LayerHideButton.IsEnabled = _imageLoaded && !_drawing;
+        LayerRemoveButton.IsEnabled = _imageLoaded && !_drawing;
+        UndoEraseButton.IsEnabled = _imageLoaded && !_drawing;
+        FlipXButton.IsEnabled = _imageLoaded && !_drawing;
+        FlipYButton.IsEnabled = _imageLoaded && !_drawing;
+        FitButton.IsEnabled = _imageLoaded && !_drawing;
         PlayButton.IsEnabled = _connected && _haveSession && !_drawing && !_recording;
         OpenSessionButton.IsEnabled = !_drawing && !_recording;
         SaveSessionButton.IsEnabled = _haveSession && !_recording;

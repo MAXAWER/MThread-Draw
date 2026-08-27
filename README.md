@@ -79,10 +79,29 @@ does not take. Windows SmartScreen says "unknown publisher" once — *More info*
 1. **Turn on USB debugging** on the phone: Settings → About phone → tap *Build
    number* seven times → Developer options → *USB debugging*.
 2. **Plug it in.** Or go wireless: `adb connect 192.168.1.42:5555`.
-3. **Open MThread Draw** → *Connect device* → *Capture screen* → *Load image* → drag
-   it over the phone preview → **START DRAWING**.
+3. **Open MThread Draw.** It finds the phone by itself, shows its screen live,
+   and lays the drawing over exactly where it will land. Drag to move it, wheel
+   to resize, Shift and wheel to turn — then **START DRAWING**.
 
-No GUI, no clicking:
+### What you can do to a drawing before it is drawn
+
+| | |
+|---|---|
+| **Move, resize, turn, flip** | Drag it over the live view; wheel resizes, Shift and wheel turns, and `Flip` mirrors it. `Fit` puts it back. |
+| **Layers** | Load several pictures and arrange them against each other. Each keeps its own position and its own tracer settings; hide one, reorder them, remove one. |
+| **Erase single strokes** | Turn the eraser on and drag across the lines you do not want. `Undo erase` brings them back. |
+| **Change the tracing** | The *detail* slider re-traces what is already loaded. There is no need to open the file again. |
+| **No live view?** | If capture fails, *Use a screenshot…* takes a picture you copied off the phone by hand. It does not update, but its proportions are what placement needs. |
+
+Nothing to install and nothing to draw with a mouse:
+
+```bash
+mthread shape heart               # a heart, fitted to the screen
+mthread shape star --points 7     # a seven-pointed star, turned however you like
+mthread text "hello" --y 0.35     # words, in any font this machine has
+```
+
+Or from code:
 
 ```python
 from mthread import Device
@@ -211,13 +230,23 @@ This repository is two things:
 
 ## Record and replay gestures
 
-Press record, do something on the phone, press stop. You get a JSON file with
-every touch event and its timing. Replay it whenever you want, at whatever speed.
+Press record, do something on the phone, press stop. You get a JSON file of
+strokes and their timing, and you can replay it whenever you want, at whatever
+speed.
 
 ```bash
 mthread record -o login.json      # do the thing on the phone, press Enter
 mthread play login.json --speed 2 --repeat 5
 ```
+
+**The file replays on a different phone.** It stores each touch as a fraction of
+the screen rather than as a digitizer coordinate, so playing it back on another
+device scales it to that screen. This was not true of the old format, and could
+not be: a digitizer's range has little to do with any display, which is why
+replaying one elsewhere used to be refused rather than attempted. Nor could the
+old format be replayed on a *current* phone at all, since it went through
+`/dev/input`, which every recent Pixel denies to the shell. Playback now goes
+through the injector, like drawing.
 
 Useful for regression passes, for reproducing a bug reliably, or for any
 repetitive tapping you would rather not do by hand.
@@ -261,11 +290,25 @@ python tools/build_app.py --dmg        # macOS
 ```bash
 mthread devices                       # what is attached
 mthread info                          # screen size and digitizer ranges
+
+mthread shape heart                   # draw a shape, nothing to prepare
+mthread shape star --points 7 --rotate 20
+mthread shape circle --scale 0.4 --x 0.25 --y 0.3
+mthread text "hello world"            # any font the machine has
+mthread text "signed" --font arial.ttf --scale 0.5 --y 0.8
+
 mthread record -o session.json        # record until Enter
-mthread record -o session.json -d 30  # record for 30 seconds
-mthread play session.json             # replay once
 mthread play session.json --speed 0.5 --repeat 3
 ```
+
+Every drawing command takes the same placement options: `--scale`, `--rotate`,
+`--flip-x`, `--flip-y`, `--x`, `--y`, `--margin`, and `--speed`/`--human` for
+how it is drawn. The shapes are `heart`, `star`, `circle`, `square`, `polygon`,
+`spiral` and `wave`.
+
+Text is rendered with a real font and then traced, which is why any font on the
+machine works and why the letters come out as outlines: a filled glyph is a
+shape with an inside and an outside, and this draws with one finger.
 
 ## Library
 
@@ -323,13 +366,18 @@ one of them, while leaving genuine closed shapes like circles intact.
 
 ## Known limits
 
-- **Recordings are not portable between phones.** They contain raw digitizer
-  coordinates, so replaying a recording made on a different panel is refused
-  rather than silently misfiring.
-- **Rotation is not handled.** Record and replay in the same orientation.
-- **Some devices expose no touchscreen usable by `sendevent`.** Drawing then fails
-  with an explicit error instead of a wrong result; `Device.swipe()` still works,
-  and an automatic fallback is an open task.
+- **Recordings are portable now**, holding fractions of a screen rather than
+  digitizer coordinates. A file written by an older version is not, and says so
+  rather than misfiring.
+- **A recording does not know which way up the phone was.** Drawing follows the
+  orientation - the engine reads it from the captured frame, since `wm size` does
+  not change when a phone is turned - but a recording holds fractions of the
+  screen it was made on, so replaying a portrait one in landscape lands sideways.
+  Replay in the orientation you recorded in.
+- **Replay timing carries a fixed overhead.** Starting and stopping the on-device
+  injector costs a second or two, so a two-second recording takes longer than two
+  seconds. The strokes and the gaps between them are faithful; the total is not,
+  and that matters if you are timing something.
 - **`mthread info` is the first thing to check** when touches land in the wrong
   place.
 
@@ -343,13 +391,15 @@ are the easiest way in. Things worth doing:
 
 - SVG input, so line art skips edge detection entirely.
 - Auto-detect swapped X/Y axes (the `swap_xy` flag exists but nothing sets it).
-- Rotation-aware coordinate mapping.
-- An automatic `input swipe` fallback when raw touch is unavailable.
+- Rotation in recordings: store which way up the phone was, and turn a replay to
+  match. Drawing already follows the orientation; replay does not.
+- Take the fixed second or two out of replay by keeping the injector alive
+  between runs.
 - Trim recordings visually in the app; cut dead time at the start and end.
 - Assertions during replay — wait for a screenshot to match before continuing,
   which is what turns this into a real test runner.
-- Skeletonise edges instead of halving contours, for cleaner line art.
 - Pressure-sensitive strokes from image darkness.
+- Shed OpenCV. Five of its functions are used and it is half the download.
 
 ---
 
@@ -412,8 +462,19 @@ explained in plain English and Russian in **[TERMS.md](TERMS.md)**.
 1. **Включить отладку по USB**: Настройки → О телефоне → семь раз по «Номер
    сборки» → Для разработчиков → Отладка по USB.
 2. **Подключить телефон.** Или по Wi-Fi: `adb connect 192.168.1.42:5555`.
-3. **Открыть MThread Draw** → *Connect device* → *Capture screen* → *Load image* →
-   перетащить картинку на превью экрана → **START DRAWING**.
+3. **Открыть MThread Draw.** Телефон находится сам, его экран показывается
+   живьём, а рисунок ложится поверх того места, куда он попадёт. Тащите мышью,
+   колесо меняет размер, Shift с колесом поворачивает — затем **START DRAWING**.
+
+Что можно сделать с рисунком до отрисовки:
+
+| | |
+|---|---|
+| **Двигать, размер, поворот, отражение** | Перетаскивание по живому экрану; колесо — размер, Shift с колесом — поворот, `Flip` — отражение, `Fit` — вписать заново. |
+| **Слои** | Несколько картинок, расставленных друг относительно друга. У каждой своё положение и свои настройки трассировки; слой можно спрятать, переставить, удалить. |
+| **Ластик** | Включите ластик и проведите по ненужным линиям. `Undo erase` возвращает их. |
+| **Пересчёт** | Ползунок детализации перетрассирует уже загруженное. Открывать файл заново не нужно. |
+| **Нет живого экрана?** | Если захват не работает, *Use a screenshot…* берёт снимок, снятый на телефоне вручную. Он не обновляется, но его пропорции — это то, что нужно для размещения. |
 
 <a name="из-исходников"></a>
 
@@ -507,16 +568,39 @@ python tools/fetch_platform_tools.py     # ~7 МБ, прямо от Google
 ```bash
 mthread devices                  # какие устройства подключены
 mthread info                     # разрешение экрана и диапазоны тачскрина
+
+mthread shape heart              # нарисовать фигуру, ничего не готовя
+mthread shape star --points 7 --rotate 20
+mthread text "привет"            # текст любым шрифтом, что есть в системе
+
 mthread record -o session.json   # запись до нажатия Enter
 mthread play session.json --speed 2 --repeat 5
 ```
+
+У всех команд рисования одни и те же параметры размещения: `--scale`,
+`--rotate`, `--flip-x`, `--flip-y`, `--x`, `--y`, `--margin`, а также
+`--speed`/`--human` — как рисовать. Фигуры: `heart`, `star`, `circle`,
+`square`, `polygon`, `spiral`, `wave`.
+
+Текст рисуется настоящим шрифтом и затем трассируется — поэтому доступен любой
+шрифт системы, и поэтому буквы выходят контурами: залитая глифа это фигура с
+внутренней и внешней границей, а здесь рисует один палец.
 
 Если `adb` установлен в нестандартное место — укажите путь в переменной
 окружения `ADB_PATH`.
 
 ## Ограничения
 
-- Записи **не переносятся между разными телефонами** — внутри сырые координаты
+- Записи **переносятся между телефонами**: внутри доли экрана, а не сырые
+  координаты дигитайзера. Файлы старого формата не переносятся и честно об этом
+  сообщают, а не рисуют мимо.
+- **Запись не знает, как был повёрнут телефон.** Рисование ориентацию учитывает —
+  движок читает её из снятого кадра, поскольку `wm size` при повороте не
+  меняется, — но запись хранит доли того экрана, на котором сделана, поэтому
+  портретная запись в горизонтальной ориентации ляжет набок.
+- **У воспроизведения есть постоянная накладная стоимость** — секунда-две на
+  запуск и остановку инжектора. Штрихи и паузы между ними точны, а общая
+  длительность нет. Старые записи — сырые координаты
   тачскрина. Попытка воспроизвести запись на панели другого размера будет
   отклонена, а не выполнена криво.
 - Поворот экрана не учитывается: записывайте и воспроизводите в одной ориентации.
